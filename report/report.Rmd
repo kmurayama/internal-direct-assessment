@@ -1,0 +1,98 @@
+---
+title: "Rubric Report"
+author: "Kentaro Murayama"
+date: "`r format(Sys.time(), '%B %d, %Y')`"
+output:
+  html_document: default
+  word_document: default
+params:
+  rubricid: 96094
+  parenthtml: "report02links.html"
+---
+```{r setup, echo=FALSE}
+library(tidyverse)
+library(gridExtra)
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE)
+# Run prepdata.R and then report02-parepare.R
+# Make it into a stand-alone?
+load("../out/report.RData")
+```
+
+```{r, results='asis'}
+cat(paste0("[Return to links.](", params$parenthtml, ")"))
+```
+
+
+# Report on Rubric `r params$rubricid`
+
+Timely assessment of the students' outcome and the rubric itself is critical both in internal assessments - for improving our teaching standards - and external assessments - for securing the accreditation status - in the coming years.
+The data of rubrics and their outcomes are readily available in D2L for this purpose.
+
+Here, the distributions of achievement levels are displayed for each rubric.
+For external assessment, the achievement levels are grouped to "Met" and "Not Met", whose threshold is between "Rudimentary" and "Basic".
+
+```{r graph1, fig.width = 8, fig.height = 8}
+x <- sdf %>% filter(RubricId == params$rubricid)
+cObjs <- levels(factor(x$ObjectiveNameUpper))
+p <- list()
+if(length(cObjs) == 0){
+  caption <- paste("Distribution of Levels Achieved,\n Rubric", params$rubricid)
+  p[[1]] <- ggplot(x, aes(LevelAchieved, fill = Meet)) + geom_bar() +
+    labs(title = caption, fill = "Achievement") +
+    facet_wrap(~ shortCriterionName)
+}else{
+  for(j in 1:length(cObjs)){
+    Objective <- cObjs[j]
+    caption <- paste("Distribution of Levels Achieved,\n Rubric", params$rubricid)
+    caption <- paste(caption, ", Objective Group", Objective)
+    p[[j]] <- ggplot(x %>% filter(ObjectiveNameUpper == Objective),
+                aes(LevelAchieved, fill = Meet)) + geom_bar() +
+      labs(title = caption, fill = "Achievement") +
+      facet_wrap(~ shortCriterionName)
+  }
+}
+# Finish up with aesthetics
+for(j in 1:length(p)){
+  pj <- p[[j]] + theme(axis.text.x = element_text(angle = 90)) +
+    xlab("Level Achieved") +
+    scale_fill_brewer(palette = "Set1", drop = FALSE) +
+    scale_x_discrete(drop = FALSE) + theme(aspect.ratio = 1)
+  print(pj)
+}
+```
+
+Moreover, it is important to distinguish those who met the criterion *sufficiently* and *marginally*. The proportion of the students who passed with "Basic" achievement level are highlighted in the following graphs.
+
+
+```{r graph2, fig.width = 6, fig.height = 6}
+x <- sdf %>% filter(RubricId == params$rubricid)
+cObjs <- levels(factor(x$ObjectiveNameUpper))
+p <- list()
+if(length(cObjs) == 0){
+  caption <- paste("Distribution of Levels Achieved,\n Rubric", params$rubricid)
+  p[[1]] <- ggplot(x,
+                   aes(x = shortCriterionName, fill = MeetBasic)) + 
+    geom_bar(position = "fill") +
+    labs(title = caption, fill = "Achievement")
+}else{
+  for(j in 1:length(cObjs)){
+    Objective <- cObjs[j]
+    caption <- paste("Distribution of Levels Achieved,\n Rubric", params$rubricid)
+    caption <- paste(caption, ", Objective Group", Objective)
+    p[[j]] <- ggplot(x %>% filter(ObjectiveNameUpper == Objective),
+                     aes(x = shortCriterionName, fill = MeetBasic)) +
+      geom_bar(position = "fill") +
+      labs(title = caption, fill = "Achievement")
+  }
+}
+# Finish up with aesthetics
+for(j in 1:length(p)){
+  pj <- p[[j]] + theme(axis.text.x = element_text(angle = 90)) +
+    xlab("Criteria") +
+    ylab("Shares") +
+    scale_fill_brewer(palette = "Set1", drop = FALSE) +
+    scale_x_discrete(drop = FALSE) +
+    coord_flip()
+  print(pj)
+}
+```

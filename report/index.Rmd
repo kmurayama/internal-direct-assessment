@@ -1,0 +1,20 @@
+---
+author: "Kentaro Murayama"
+date: "`r format(Sys.time(), '%B %d, %Y')`"
+output:
+  html_document: default
+---
+```{r, echo=FALSE}
+load("reports.RData")
+links <- reports$output_file
+```
+
+```{r, results='asis', echo=FALSE}
+for(i in 1:10){
+  link <- links[i]
+  cat(paste0("- [", link, "](", link, ")\n"))
+}
+```
+
+
+
