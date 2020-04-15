@@ -5,7 +5,7 @@ output:
   html_document: default
 ---
 ```{r, echo=FALSE}
-load("reports.RData")
+load("../out/reports.RData")
 links <- reports$output_file
 ```
 
