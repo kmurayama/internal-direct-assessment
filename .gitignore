@@ -3,7 +3,9 @@
 .RData
 .Ruserdata
 
-data/*
 *.RData
 report/*
 !report/*.Rmd
+
+data/*
+!data/README.md
