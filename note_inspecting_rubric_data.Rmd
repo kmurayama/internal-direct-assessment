@@ -249,12 +249,17 @@ dups
 
 Good.
 
+
+## Merge
 Finally, merge the data.
 
 ```{r}
 res$Course <- with(res, paste(CID1, CID2, CID3))
 dim(df)
-df <- df %>% left_join(res %>% select(RubricId, Course, `Assessment Name`, Semester), by="RubricId")
+df <- df %>%
+  left_join(res %>% select(RubricId, Instructor = Name, Course,
+                           `Assessment Name`, Semester,
+                           CID1, CID2, CID3), by="RubricId")
 dim(df)
 ```
 
@@ -264,6 +269,198 @@ summary(df)
 ```
 
 # Inspect Data
+Haven't handled the achievement levels...
+
+
+```{r}
+list.levels <- levels(df$LevelAchieved)
+list.levels
+```
+
+
+```{r}
+grep("%\\)", list.levels, value=TRUE)
+```
+
+- Advanced
+- Proficient
+- Basic
+- Developing
+- Unsatisfactory
+
+```{r}
+grep("\\d{1,3}\\/", list.levels, value=TRUE)
+```
+
+- Excellent
+- Good
+- Fair
+- Rudimentary
+- Unacceptable
+
+Those two types?
+
+```{r}
+achievements1 <- c("Advanced", "Proficient", "Basic", "Developing", "Unsatisfactory")
+achievements2 <- c("Excellent","Good","Fair","Rudimentary","Unacceptable")
+
+pttrn <- paste(c(achievements1, achievements2), collapse = "|")
+
+df$Test <- grepl(pttrn, df$LevelAchieved)
+with(df, table(LevelAchieved, Test))
+```
+Looks good.
+
+```{r}
+mdf <- df[grepl(pttrn, df$LevelAchieved), ]
+sdf <- df[!grepl(pttrn, df$LevelAchieved), ]
+```
+
+```{r}
+mdf$LevelAchieved <- droplevels(mdf$LevelAchieved)
+sdf$LevelAchieved <- droplevels(sdf$LevelAchieved)
+```
+
+Now I have `mdf` for achievements and `sdf` for attributes.
+
+```{r}
+summary(mdf)
+```
+
+## Visualize
+Now, let's pick some course and visualize.
+
+```{r}
+tdf <- mdf %>% filter(Instructor == "Kentaro Murayama")
+tdf <- droplevels(tdf)
+table(droplevels(tdf$RubricId))
+```
+
+```{r}
+table(tdf$Course, tdf$RubricId)
+```
+
+```{r}
+with(tdf, table(Course, LevelAchieved))
+```
+
+Oh... By semester, I used inconsistent levels.
+
+```{r}
+tdf <- tdf %>% mutate(LevelAchieved = str_extract(tdf$LevelAchieved, pttrn))
+with(tdf, table(Course, LevelAchieved))
+```
+```{r}
+names(achievements2) <- achievements1
+tdf$LevelAchieved <- str_replace_all(tdf$LevelAchieved, achievements2)
+with(tdf, table(Course, LevelAchieved))
+```
+
+Moreover, make levels into a factor.
+```{r}
+tdf$LevelAchieved <- ordered(tdf$LevelAchieved, levels = achievements2)
+```
+
+
+Now levels are standardized. Plot them.
+```{r}
+ggplot(tdf, aes(Course)) + geom_bar(aes(fill = LevelAchieved))
+```
+
+```{r}
+ggplot(tdf, aes(Course)) + geom_bar(aes(fill = LevelAchieved), position = "fill")
+```
+```{r}
+ggplot(tdf, aes(fct_rev(LevelAchieved))) + geom_bar(aes(fill = LevelAchieved)) + facet_wrap(vars(Course)) 
+```
+
+
+## Feedback to Data
+Alright. Enough. Let's feed the change back to the data frame.
+
+```{r}
+mdf <- mdf %>% mutate(LevelAchieved = str_extract(mdf$LevelAchieved, pttrn))
+names(achievements2) <- achievements1
+mdf$LevelAchieved <- str_replace_all(mdf$LevelAchieved, achievements2)
+table(mdf$LevelAchieved)
+```
+
+ToDo: Feed back to the `df`?
+
+## By Class
+For assessment, I need to have a summary. What does it look if I aggregate over the same course (with different instructors and sections)? How can I keep track of f2f vs online?
+
+```{r}
+mdf$Course2 <- with(mdf, paste(CID1, CID2))
+ggplot(mdf %>% filter(Course2 == "ECO 201"), aes(fct_rev(LevelAchieved))) + geom_bar(aes(fill = LevelAchieved))
+```
+
+Alright. Look more closely.
+
+```{r}
+tdf <- mdf %>% filter(Course2 == "ECO 201")
+```
+```{r}
+tdf <- droplevels(tdf)
+table(tdf$Course2, tdf$Instructor)
+```
+
+```{r}
+ggplot(tdf, aes(Instructor)) + geom_bar(aes(fill = LevelAchieved), position = "fill")
+```
+
+```{r}
+ggplot(tdf, aes(fct_rev(LevelAchieved))) + geom_bar(aes(fill = LevelAchieved)) + facet_grid(cols = vars(Instructor)) 
+```
+
+Interesting? Easier to see the shape by normalize it?
+```{r}
+ns <- tdf %>% group_by(Instructor) %>% summarise(n = n())
+tbl <- tdf %>% group_by(Instructor, LevelAchieved) %>% summarise(n = n())
+tbl <- tbl %>% left_join(ns, by = "Instructor", suffix = c("n", "N")) %>% mutate(n = nn/nN)
+tbl
+ggplot(tbl, aes(fct_rev(LevelAchieved))) + geom_col(aes(y = n, fill = LevelAchieved)) + facet_grid(cols = vars(Instructor)) 
+```
+```{r}
+ggplot(tbl, aes(fct_rev(LevelAchieved), y = n)) +
+  geom_point() +
+  geom_line(aes(group = 1)) +
+  facet_grid(cols = vars(Instructor)) 
+```
+
+## By Delivery
+Now, sections with online delivery should be with "G" in their names.
+```{r}
+table(tdf$CID3)
+```
+
+What's "CD"...? Need to check.
+
+```{r}
+tdf$Online <- tdf$CID3 == "GW1"
+```
+
+```{r}
+ggplot(tdf, aes(Online)) + geom_bar(aes(fill = LevelAchieved), position = "fill")
+```
+
+```{r}
+ggplot(tdf, aes(fct_rev(LevelAchieved))) + geom_bar(aes(fill = LevelAchieved)) + facet_grid(cols = vars(Online)) 
+```
+
+They looks fairly similar.
+
+```{r}
+tdf$Met <- tdf$LevelAchieved == "Excellent" | tdf$LevelAchieved == "Fair"
+x <- tdf %>% group_by(Online, Met) %>% summarise(n=n()) %>%
+  pivot_wider(id_cols = Online, names_from = Met, values_from = n)
+names(x) <- c("Online", "Not", "Met")
+x
+prop.test(as.matrix(x[, -1]))
+```
+
+Define "Met" by counting either "Excellent" or "Fair". Then test the proportionality between face to face (F2F) and online deliveries. The test fail to reject the hull of the same proportions.
+
 
 # Next Action
 
