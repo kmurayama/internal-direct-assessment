@@ -9,3 +9,5 @@ report/*
 
 data/*
 !data/README.md
+
+*html
