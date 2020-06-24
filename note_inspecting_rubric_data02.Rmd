@@ -17,7 +17,7 @@ First, import D2L data.
 ```{r import-d2l}
 fn <- "data/Rubrics.xlsx"
 df <- read_xlsx(fn) %>%
-  mutate(across(c(RubricId:UserId, LevelAchieved), factor),
+  mutate(across(c(RubricId:Name, LevelAchieved), factor),
          IsScoreOverridden = (IsScoreOverridden == "True"))
 ```
 
@@ -103,8 +103,9 @@ res <- res %>% filter(!ID %in% id.drop)
 And trim some variables and format.
 ```{r }
 res <- res %>% select(-Course) %>%
-  mutate(across(c(ID, Email:Semester, starts_with("CID")), factor),
-         Course = paste(CID1, CID2, CID3))
+  mutate(Course = paste(CID1, CID2, CID3),
+    across(c(ID, Email:Semester, CID1:Course), factor)
+    )
 ```
 
 ## Merge
@@ -169,5 +170,43 @@ mdf$LevelAchieved <- str_replace_all(mdf$LevelAchieved, achievements2)
 mdf$LevelAchieved <- ordered(mdf$LevelAchieved, levels = achievements2)
 
 summary(mdf)
+```
+
+## Disaggregated
+Some more variations in data ECO 201.
+```{r}
+mdf$Course2 <- with(mdf, paste(CID1, CID2))
+tdf <- mdf %>% filter(Course2 == "ECO 201")
+table(droplevels(tdf$RubricId))
+table(droplevels(tdf$Name))
+```
+## Another class
+
+```{r}
+#table(factor(mdf$Course2), mdf$Course)
+sdf <- mdf %>% filter(Course2 == "MGT 300")
+levels(factor(sdf$`Assessment Name`))
+```
+
+
+```{r}
+tdf <- sdf %>% filter(grepl("Hidden", `Assessment Name`))
+tdf <- droplevels(tdf)
+
+table(factor(tdf$Name))
+table(factor(tdf$`Assessment Name`))
+table(tdf$`Assessment Name`, tdf$Course)
+```
+
+
+```{r}
+tdf$Name <- str_remove(tdf$Name, '"')
+table(factor(tdf$Name))
+table(tdf$`Assessment Name`, tdf$Course)
+```
+
+
+```{r}
+ggplot(tdf) + geom_bar(aes(LevelAchieved)) + facet_wrap(vars(Name))
 ```
 
