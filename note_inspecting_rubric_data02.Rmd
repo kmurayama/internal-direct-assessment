@@ -8,3 +8,166 @@ output: html_notebook
 library(tidyverse)
 library(readxl)
 ```
+
+# Intro
+Let's sort out the data import and munging. Most problems came from the survey data. As noted in the last note, I can manually edit the file rather than fixing them here. Keep the code neat and use it later for error check. No need for further improvement.
+
+## Import D2L
+First, import D2L data.
+```{r import-d2l}
+fn <- "data/Rubrics.xlsx"
+df <- read_xlsx(fn) %>%
+  mutate(across(c(RubricId:UserId, LevelAchieved), factor),
+         IsScoreOverridden = (IsScoreOverridden == "True"))
+```
+
+## Import Survey
+Import the survey. Only the first 12 columns are relevant to those with rubrics.
+```{r import-survey}
+fn <- "data/Tracking of Assessment of Student Learning Outcomes Data Collection.xlsx"
+res <- read_excel(fn, sheet = "Response0602")
+res <- res[res[, 9] == "Yes", ] # Use rubrics?
+res <- res[1:12]
+
+qs <- names(res)
+responder.info <- c("ID", "Started", "Completed", "Email", "Name")
+course.info <- c("Semester", "Course")
+assessment.info <- c("Assessment Name", "Rubric Usage")
+rubric.info <- c("URL", "Intrepretation", "Action for Improvement")
+names(res) <- c(responder.info, course.info, assessment.info, rubric.info)
+```
+
+Now, clean up the file. Course names have some minor errors. It'll be easier if correcting them and split its components for later use.
+```{r clean-course}
+x <- res$Course
+
+x <- str_replace(x, "GW[I|!]", "GW1") # Replace some typos
+x <- str_remove(x, "[0-9]{4,}") # Remove leading time stamp
+cid1 <- str_match(x, "[A-Z]{2,3}")
+cid2 <- str_extract_all(x, "(CD|G[WS])?[0-9]{1,3}", simplify = TRUE)
+res.names <- names(res)
+res <- cbind(res, cid1, cid2)
+names(res) <- c(res.names, paste0("CID", 1:3))
+res$CID1 <- str_replace(res$CID1, "BS[U]?", "BUS") # Replace less critical typo
+res$CID3 <- str_replace(res$CID3, "^01", "001") # Replace less critical typo
+
+```
+
+Assessment names shall be used 'as is', but need to check for errors. There are two changes: Drop Ed's entry. Split Neeley's.
+```{r clean-assessment}
+res$`Assessment Name` <- str_to_title(res$`Assessment Name`) # Good enough
+res[94, ] <- res[26, ]
+
+anames <- str_split(res[94, "Assessment Name"], ",", simplify = TRUE)
+urls <- str_split(res[94, "URL"], "Burts", simplify = TRUE)
+res[26, c("Assessment Name", "URL")] <- c(anames[1], urls[1])
+res[94, c("Assessment Name", "URL")] <- c(anames[2], urls[2])
+```
+
+Lastly, prepare for merge. Need to have unique IDs.
+```{r extract-rubricid}
+x <- str_extract_all(res$URL, "rubricId=[0-9]{6}", simplify=TRUE)
+res$RubricId <- factor(str_extract_all(x, "[0-9]{6}", simplify=TRUE))
+```
+```{r, eval=FALSE}
+tbl <- table(res$RubricId)
+dups <- tbl[tbl > 1]
+res[res$RubricId==names(dups)[1], ]
+# Drop 2, 22
+res[res$RubricId==names(dups)[2], ]
+# Drop 41 (see the note)
+res[res$RubricId==names(dups)[3], ]
+# Drop 77 Why resubmit?
+res[res$RubricId==names(dups)[4], ]
+# Drop 71 ?
+res[res$RubricId==names(dups)[5], ]
+# Drop 1
+res[res$RubricId==names(dups)[6], ]
+# Drop 83 ?
+res[res$RubricId==names(dups)[7], ]
+# Drop 88 ?
+res[res$RubricId==names(dups)[8], ]
+# Different sections but provided same ID. Actual error. Drop 116.
+res[res$RubricId==names(dups)[9], ]
+# Drop 37
+res[res$RubricId==names(dups)[10], ]
+# Drop 93 ?
+res[res$RubricId==names(dups)[11], ]
+# Drop 92 ?
+```
+```{r}
+id.drop <- c(2, 22, 41, 77, 71, 1, 83, 88, 116, 37, 93, 92)
+res <- res %>% filter(!ID %in% id.drop)
+```
+
+And trim some variables and format.
+```{r }
+res <- res %>% select(-Course) %>%
+  mutate(across(c(ID, Email:Semester, starts_with("CID")), factor),
+         Course = paste(CID1, CID2, CID3))
+```
+
+## Merge
+Merge the survey data into the D2L.
+```{r}
+dim(df)
+df <- df %>%
+  left_join(res %>% select(RubricId, Instructor = Name, Course,
+                           `Assessment Name`, Semester,
+                           CID1, CID2, CID3), by="RubricId")
+dim(df)
+```
+
+
+
+# Inspect Data
+Summary of the data:
+```{r}
+summary(df)
+```
+
+What are those missing values?
+```{r}
+summary(df[is.na(df$Semester), ])
+table(df[is.na(df$Semester), 1])
+```
+
+Concentrated on the rubric id `113393`. Shall I ask Jon about it?
+
+Anyway, separate them for now.
+
+```{r}
+df.na <- df[is.na(df$Semester), ]
+df <- df[!is.na(df$Semester), ]
+summary(df)
+```
+
+## Separate
+Data are mixture of assessment and attributes.
+
+```{r}
+list.levels <- levels(df$LevelAchieved)
+list.levels
+```
+Separate those two by pattern matching.
+```{r}
+achievements1 <- c("Unsatisfactory", "Developing", "Basic", "Proficient", "Advanced")
+achievements2 <- c("Unacceptable", "Rudimentary", "Fair", "Good", "Excellent")
+pttrn <- paste(c(achievements1, achievements2), collapse = "|")
+
+mdf <- df[grepl(pttrn, df$LevelAchieved), ]
+sdf <- df[!grepl(pttrn, df$LevelAchieved), ]
+mdf$LevelAchieved <- droplevels(mdf$LevelAchieved)
+sdf$LevelAchieved <- droplevels(sdf$LevelAchieved)
+```
+
+Moreover, standardize levels. As seen in Note 1, those levels can be inconsistent even with the same instructor (e.g. me) across semesters.
+```{r}
+mdf <- mdf %>% mutate(LevelAchieved = str_extract(mdf$LevelAchieved, pttrn))
+names(achievements2) <- achievements1 # Use named list with str_replace_all
+mdf$LevelAchieved <- str_replace_all(mdf$LevelAchieved, achievements2)
+mdf$LevelAchieved <- ordered(mdf$LevelAchieved, levels = achievements2)
+
+summary(mdf)
+```
+
