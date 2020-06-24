@@ -172,6 +172,41 @@ mdf$LevelAchieved <- ordered(mdf$LevelAchieved, levels = achievements2)
 summary(mdf)
 ```
 
+## Notes on Levels
+Got a note from Beth:
+
+> Some notes:
+GW = online (this is true for both undergrad and grad)
+>
+> For undergrad (note the order from A, B, C, D, F)
+> Excellent/advanced + Good/proficient + Basic/Fair = Meets expectation (maybe stacked bar shades of blue? with excellent/advanced being darkest)
+> Rudimentary/poor/developing + Unacceptable/unsatisfactory = not met (maybe stacked bar shades of orange or red?)
+> 
+> For grad
+> Excellent/advanced + Good/proficient = Meets expectation
+> Basic/Fair + Rudimentary/poor/developing + Unacceptable/unsatisfactory = not met 
+> 
+> We've got several types of charts
+> •	Met/not met (and trends over time)
+> •	On-ground/online
+> •	Grade trends by faculty member by course number
+
+So, I need to make a distinction between undergrad/grad when it comes to checking the achievement. Totally forgot.
+
+```{r}
+mdf <- mdf %>% mutate(
+  Met.UND = case_when(is.na(LevelAchieved) ~ "Missing",
+    LevelAchieved == "Excellent" | LevelAchieved == "Good" |
+      LevelAchieved == "Fair" ~ "Met",
+    TRUE ~ "Not Met"),
+  Met.GRD = case_when(is.na(LevelAchieved) ~ "Missing",
+    LevelAchieved == "Excellent" | LevelAchieved == "Good" ~ "Met",
+    TRUE ~ "Not Met")
+  )
+table(mdf$LevelAchieved, mdf$Met.GRD)
+```
+
+
 ## Disaggregated
 Some more variations in data ECO 201.
 ```{r}
