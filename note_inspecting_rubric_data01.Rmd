@@ -1,6 +1,16 @@
 ---
-title: "Note to Inspect Rubric Data"
-output: html_notebook
+title: Note to Inspect Rubric Data 1
+author: Kentaro Murayama
+date: 2020/6/23
+output:
+  html_document:
+    code_folding: hide
+    toc: yes
+    toc_depth: 4
+    toc_float:
+      collapsed: false
+    number_sections: true
+    theme: paper
 ---
 
 ```{r, echo=FALSE, include=FALSE}
@@ -463,16 +473,10 @@ Define "Met" by counting either "Excellent" or "Fair". Then test the proportiona
 
 
 # Next Action
+Took too much time on the data wangling. Given the size of survey data, it's probably easy to just manually fix it. And it makes more sense since the survey questions can be improved. *Do that later and use the code for error check.*
 
-# Note: For archiving notebook
-```
-output:
-  html_document:
-    code_folding: hide
-    toc: yes
-    toc_depth: 4
-    toc_float:
-      collapsed: false
-    number_sections: true
-    theme: paper
-```
+Meanwhile, put the scattered code together and move on to another note. The merged data should be "good enough" for preliminary analysis.
+
+Share the results here in the meeting tomorrow & ask about what aspects should be inspected carefully. For instance, the difference between F2F and online came up in conversations before. What do we want to know in particular? Mean, range, overall distribution? What about differences between or within instructors? (i.e. are some instructors particularly good/bad in online? are some instructors have big difference in online/F2F?)
+
+Of course, I shall follow the past report and measure the *prevalence of achievement* for each objective. For this, I need to confirm the mapping. At the moment, I mostly rely on the 2019-20 copy (draft?), but the changes from 2018-19 are not clearly documented or finalized.
