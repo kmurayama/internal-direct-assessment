@@ -103,8 +103,10 @@ res <- res %>% filter(!ID %in% id.drop)
 And trim some variables and format.
 ```{r }
 res <- res %>% select(-Course) %>%
-  mutate(Course = paste(CID1, CID2, CID3),
-    across(c(ID, Email:Semester, CID1:Course), factor)
+  mutate(
+    Section = paste(CID1, CID2, CID3),
+    Course = paste(CID1, CID2),
+    across(c(ID, Email:Semester, Section:Course), factor)
     )
 ```
 
@@ -115,13 +117,14 @@ dim(df)
 df <- df %>%
   left_join(res %>% select(RubricId, Instructor = Name, Course,
                            `Assessment Name`, Semester,
-                           CID1, CID2, CID3), by="RubricId")
+                           Section, Course), by="RubricId")
 dim(df)
 ```
 
 
 
-# Inspect Data
+# Munge Data
+
 Summary of the data:
 ```{r}
 summary(df)
@@ -207,11 +210,14 @@ table(mdf$LevelAchieved, mdf$Met.GRD)
 ```
 
 
+
+# Inspect Data
+
 ## Disaggregated
+
 Some more variations in data ECO 201.
 ```{r}
-mdf$Course2 <- with(mdf, paste(CID1, CID2))
-tdf <- mdf %>% filter(Course2 == "ECO 201")
+tdf <- mdf %>% filter(Course == "ECO 201")
 table(droplevels(tdf$RubricId))
 table(droplevels(tdf$Name))
 ```
