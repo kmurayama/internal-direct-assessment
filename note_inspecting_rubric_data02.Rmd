@@ -1,0 +1,10 @@
+---
+title: "Note to Inspect Rubric Data 2"
+output: html_notebook
+---
+
+```{r, echo=FALSE, include=FALSE}
+#knitr::opts_chunk$set(message = FALSE, warning = FALSE)
+library(tidyverse)
+library(readxl)
+```
