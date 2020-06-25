@@ -245,8 +245,85 @@ Apparently, there are quite a bit of variations in criterion wording. Even worse
 ```{r}
 tdf <- mdf %>% filter(Course == "ECO 201")
 tdf <- droplevels(tdf)
-table(tdf$Instructor, tdf$Name)
+#table(tdf$Instructor, tdf$Name)
+levels(tdf$Name)
 ```
+
+Those criteria can be picked by certain phrases, however. First, make the letter cases standardized. Then, search by phrases like "Arguments for protection|ism" OR edit if there only a few exceptions.
+
+```{r}
+tdf$Name <- str_to_title(tdf$Name)
+levels(as.factor(tdf$Name))
+```
+```{r}
+dict <-  c("^Arguments For Protection$"="Arguments For Protectionism",
+           "^Citations$"="Citations/References",
+           "^Structure$"="Structure/Clarity",
+           "Winners/Losers"="Winners And Losers")
+#str_replace_all(levels(as.factor(tdf$Name)), dict)
+tdf$Name <- str_replace_all(tdf$Name, dict)
+tdf$Name <- factor(tdf$Name)
+levels(tdf$Name)
+```
+
+Now, it's ready to be viewed.
+
+As in the Note 1, here's distribution of grades by instructor. All the criteria are added together without any weights.
+```{r}
+ggplot(tdf, aes(LevelAchieved)) + geom_bar(aes(fill = LevelAchieved)) + facet_grid(cols = vars(Instructor)) 
+```
+
+Tendencies can be seen more clearly once normalized.
+```{r}
+ns <- tdf %>% group_by(Instructor) %>% summarise(n = n())
+tbl <- tdf %>% group_by(Instructor, LevelAchieved) %>% summarise(n = n())
+tbl <- tbl %>% left_join(ns, by = "Instructor", suffix = c("n", "N")) %>% mutate(n = nn/nN)
+ggplot(tbl, aes(LevelAchieved)) + geom_col(aes(y = n, fill = LevelAchieved)) + facet_grid(cols = vars(Instructor)) 
+```
+```{r}
+ggplot(tbl, aes(LevelAchieved, y = n)) +
+  geom_point() +
+  geom_line(aes(group = 1)) +
+  facet_grid(cols = vars(Instructor)) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+```
+
+Now, what do they look like for each criterion?
+
+```{r}
+criteria <- levels(tdf$Name)
+criteria
+```
+
+
+```{r}
+x <- tdf %>% filter(Name == criteria[1])
+ns <- x %>% group_by(Instructor) %>% summarise(n = n())
+tbl <- x %>% group_by(Instructor, LevelAchieved) %>% summarise(n = n())
+tbl <- tbl %>% left_join(ns, by = "Instructor", suffix = c("n", "N")) %>% mutate(n = nn/nN)
+
+ggplot(tbl, aes(LevelAchieved, y = n)) +
+  geom_point() +
+  geom_line(aes(group = 1)) +
+  facet_grid(cols = vars(Instructor)) +
+  labs(title = criteria[1]) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+```
+```{r}
+i <- 11
+x <- tdf %>% filter(Name == criteria[i])
+ns <- x %>% group_by(Instructor) %>% summarise(n = n())
+tbl <- x %>% group_by(Instructor, LevelAchieved) %>% summarise(n = n())
+tbl <- tbl %>% left_join(ns, by = "Instructor", suffix = c("n", "N")) %>% mutate(n = nn/nN)
+
+ggplot(tbl, aes(LevelAchieved, y = n)) +
+  geom_point(aes(color = nN)) +
+  geom_line(aes(group = 1)) +
+  facet_grid(cols = vars(Instructor)) +
+  labs(title = criteria[i]) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+```
+
 ## Another class
 
 ```{r}
