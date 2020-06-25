@@ -165,6 +165,12 @@ mdf$LevelAchieved <- droplevels(mdf$LevelAchieved)
 sdf$LevelAchieved <- droplevels(sdf$LevelAchieved)
 ```
 
+Now this `mdf` only contains rubrics with achievment levels.
+```{r}
+table(mdf$LevelAchieved)
+```
+
+
 Moreover, standardize levels. As seen in Note 1, those levels can be inconsistent even with the same instructor (e.g. me) across semesters.
 ```{r}
 mdf <- mdf %>% mutate(LevelAchieved = str_extract(mdf$LevelAchieved, pttrn))
@@ -172,7 +178,7 @@ names(achievements2) <- achievements1 # Use named list with str_replace_all
 mdf$LevelAchieved <- str_replace_all(mdf$LevelAchieved, achievements2)
 mdf$LevelAchieved <- ordered(mdf$LevelAchieved, levels = achievements2)
 
-summary(mdf)
+table(mdf$LevelAchieved)
 ```
 
 ## Notes on Levels
@@ -209,9 +215,27 @@ mdf <- mdf %>% mutate(
 table(mdf$LevelAchieved, mdf$Met.GRD)
 ```
 
+## Critrion Names
+Criterion names have some strange issues. Some contains a double quotation mark (with escaped). This can be confirmed in the original data. 
+Also, some appear to be incomplete, only having learning objective labels.
+
+How can I confirm they are error or not? Check known rubrics? Ask Jon?
+
+```{r}
+levels(mdf$Name)
+```
+
+At least, it's easy to deal with the quotation mark.
+```{r}
+mdf$Name <- str_remove(mdf$Name, '^"')
+head(levels(as.factor(mdf$Name)))
+```
+
+Let's deal with them case by case for now. Then I can find a solution later.
 
 
 # Inspect Data
+Finally, the data is (sufficiently) ready for inspection.
 
 ## Disaggregated
 
