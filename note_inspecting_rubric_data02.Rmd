@@ -227,8 +227,8 @@ levels(mdf$Name)
 
 At least, it's easy to deal with the quotation mark.
 ```{r}
-mdf$Name <- str_remove(mdf$Name, '^"')
-head(levels(as.factor(mdf$Name)))
+mdf$Name <- as.factor(str_remove(mdf$Name, '^"'))
+head(levels(mdf$Name))
 ```
 
 Let's deal with them case by case for now. Then I can find a solution later.
@@ -236,14 +236,16 @@ Let's deal with them case by case for now. Then I can find a solution later.
 
 # Inspect Data
 Finally, the data is (sufficiently) ready for inspection.
+Let's pick a few classes and examine.
 
-## Disaggregated
+## ECO 201
+ECO 201 data has been checked in Note 1. However, any disaggregation by criterion was not done.
+Apparently, there are quite a bit of variations in criterion wording. Even worse than achievement levels.
 
-Some more variations in data ECO 201.
 ```{r}
 tdf <- mdf %>% filter(Course == "ECO 201")
-table(droplevels(tdf$RubricId))
-table(droplevels(tdf$Name))
+tdf <- droplevels(tdf)
+table(tdf$Instructor, tdf$Name)
 ```
 ## Another class
 
