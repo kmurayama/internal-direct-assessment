@@ -377,6 +377,31 @@ Given the Pass/No Credit (P/NC) policy allowed students to "give up" on big assi
 
 Regardless, I will need information about withdraw etc. It'll be easy to add that information at the aggregate (e.g. how much proportion of students withdrew this semester? - This wouldn't alter the score averages as long as they are removed from D2L.) It can be challenging or impossible to match individuals.
 
+### ACBSP Reports
+For reports, we need some aggregates. Many of rubric outcomes are used for internal assessment as prevalence of achievements, or how much proportion of students achieved the goal.
+
+Luckily, this is already measured following Beth's notes.
+```{r}
+tdf %>% group_by(Name) %>% summarise(Share = mean(Met.UND == "Met"))
+```
+
+Online vs F2F? Need to make a variable for this.
+```{r}
+tdf <- tdf %>% mutate(Online = grepl("GW", Section))
+table(tdf$Section, tdf$Online)
+```
+Then,
+```{r}
+tdf %>% group_by(Name, Online) %>% summarise(Share = mean(Met.UND == "Met"))
+```
+Or,
+```{r}
+tdf$Met.bin <- (tdf$Met.UND == "Met")
+tdf$Met.bin <- case_when(tdf$Met.UND == "Met" ~ 1, TRUE ~ 0)
+ggplot(tdf, aes(Online, Met.bin)) + stat_summary(fun.y = mean, geom = "bar") + facet_wrap(vars(Name), ncol = 6)
+```
+
+I can look at 1) absolute level against the goal (75% or so?); 2) differences between groups. For latter, I can plot the original achievement levels together with prevalence (like in Survey report). Also plot of Scores should give a qualitatively the same information, but more explicit about each weight on criterion.
 
 
 ## Another class
