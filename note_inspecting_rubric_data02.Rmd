@@ -323,6 +323,32 @@ ggplot(tbl, aes(LevelAchieved, y = n)) +
   theme(axis.text.x = element_text(angle = 90, hjust = 1))
 ```
 
+#### Improvment to the code
+There's a Q&A on this topic at <https://www.thetopsites.net/article/51850864.shtml> and <https://sebastiansauer.github.io/percentage_plot_ggplot2_V2/>.
+
+This fails if I try to facet.
+```{r}
+p <- ggplot(tdf, aes(LevelAchieved)) + geom_bar(aes(y = (..count..)/sum(..count..)))
+p + facet_grid(cols = vars(Instructor))
+```
+
+This works!
+```{r}
+ggplot(tdf, aes(LevelAchieved, group = Instructor)) +
+  geom_bar(aes(y = ..prop.., fill = factor(..x..)), stat = "count") +
+  scale_y_continuous(labels=scales::percent) +
+  facet_grid(cols = vars(Instructor))
+```
+
+And it can be applied to point-line type easily.
+```{r}
+ggplot(tdf, aes(LevelAchieved, group = Instructor)) +
+  geom_point(aes(y = ..prop.., fill = factor(..x..)), stat = "count") +
+  geom_line(aes(y = ..prop.., fill = factor(..x..)), stat = "count") +
+  scale_y_continuous(labels=scales::percent) +
+  facet_grid(cols = vars(Instructor))
+```
+
 ### Score
 Scores reflect the weights in rubric rows.
 ```{r}
