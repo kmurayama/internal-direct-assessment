@@ -403,34 +403,36 @@ ggplot(tdf, aes(Online, Met.bin)) + stat_summary(fun.y = mean, geom = "bar") + f
 
 I can look at 1) absolute level against the goal (75% or so?); 2) differences between groups. For latter, I can plot the original achievement levels together with prevalence (like in Survey report). Also plot of Scores should give a qualitatively the same information, but more explicit about each weight on criterion.
 
+#### More on ACBSP
+I asked Beth about what needs to be in. She's explained it in the meeting, but I got those mixed up. She further clarified them for me. I've been basing my idea on the existing report done by Ed last two (or more?) years. I need to follow them, but also need to understand the ACBSP requirements/expectations to address their notes. ...And, moreover, turn things into opportunity for improvement.
 
-## Another class
+For *Standard 4*, we need "trend data for every program and each major/concentration/certificate" to show the systematic assessment of student learning. To remind myself, here's the quote from ACBSP:
 
-```{r}
-#table(factor(mdf$Course2), mdf$Course)
-sdf <- mdf %>% filter(Course2 == "MGT 300")
-levels(factor(sdf$`Assessment Name`))
-```
+> The business unit must have a systematic student learning outcomes assessment process and plan that leads to continuous improvement. Student learning outcomes must be developed and implemented for each accredited program, and the results must be communicated to stakeholders. 
 
+So, Beth explains that we need those direct(external/internal)/indirect assessments. As we organized the directories:
 
-```{r}
-tdf <- sdf %>% filter(grepl("Hidden", `Assessment Name`))
-tdf <- droplevels(tdf)
+- External direct comparison: We use Peregrine tests. "How well do our students overall compare to the CPC, How well do each of our major/concentration/certificate compare with the rest of CALU student--answers things like do econ students to better on econ than do students overall; do marketing students do better in marketing than do students overall."
+- Internal direct assessments: We use mostly rubric-based assessments. "Internal trends and comparison to our own learning program objectives based on our course-embedded D2L rubrics in BUS499 for the undergrads; but a mixed bag for the MBA right now==this will all go into MBA750 in the future." & "Internal trends and comparison to our major/concentration/certificate from the core course signature assignments in D2L"
+- External indirect assessments: We use Peregrine exit survey. "Internal trends and comparisons of every program and each major/concentration/certificate from the Peregrine survey questions **that are based on our learning outcomes (both undergrad and MBA)**." (Emphasis by me)
 
-table(factor(tdf$Name))
-table(factor(tdf$`Assessment Name`))
-table(tdf$`Assessment Name`, tdf$Course)
-```
+[Plus, "Parse the Peregrine data based on whether they took the course in my section (online) or Mark's (on-ground. This will be a process improvement, so we don't need to go overboard."]
 
+For these, we need 3-5 data points - preferably by academic year, if available - to show the trend.
 
-```{r}
-tdf$Name <- str_remove(tdf$Name, '"')
-table(factor(tdf$Name))
-table(tdf$`Assessment Name`, tdf$Course)
-```
+Apart from these, *Standard 3* asks for students and stakeholder roles.
 
+> The business unit must have a systematic process to determine requirements and expectations of current and future students and other key stakeholders. The process must measure stakeholder participation and satisfaction and use the results for continuous improvement. 
 
-```{r}
-ggplot(tdf) + geom_bar(aes(LevelAchieved)) + facet_wrap(vars(Name))
-```
+Now other questions from outcomes in the survey will be used for this. Beth explains that:
 
+> •	Internal trends and comparisons of the other questions from the Peregrine survey questions that are based on student satisfaction (both undergrad and MBA). For example, we will highlight Stephanie's awesomeness in taking over the MBA program.
+> •	Online/on-ground parsing of the Peregrine survey data is probably a very good idea here as well.
+
+Finally, *Standard 6* is the detailed analysis and "closing the loop" through curriclum (development). The standard reads:
+
+> The business unit must have a systematic process to ensure continuous improvement of curriculum and program delivery. The curriculum must be comprised of appropriate business and professional content to prepare graduates for success. 
+
+Beth places this step as after we see trends in Standard 4, combining "specialized Peregrine runs and detailed analysis more detailed analysis of the D2L data". For instance, we can identify some assignment/assessment where students struggle, then we can trace the trend over time to see how this issue can be addressed. Peregrine survey outcome questions can be used here as well.
+
+In terms of my actions, then, this set of goals provides a better organization of output reports and priorities in analysis. I need to, first, have the aggregate trend data out *and share them with others* before moving on to the next step and adding detailed, multifaceted (wording?) analysis.
