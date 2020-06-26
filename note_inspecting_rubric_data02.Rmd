@@ -324,6 +324,26 @@ ggplot(tbl, aes(LevelAchieved, y = n)) +
   theme(axis.text.x = element_text(angle = 90, hjust = 1))
 ```
 
+### Edit all?
+
+### Score
+Scores reflect the weights in rubric rows.
+```{r}
+tdf %>% group_by(Instructor, Name) %>% summarise(mean(Score))
+```
+
+
+```{r}
+ggplot(tdf) + geom_boxplot(aes(Instructor, Score)) + facet_wrap(vars(Name)) + coord_flip()
+```
+
+First of all, what's happening with my scores in "Arguments for Protection"? Some error, I guess. Then how shall I treat such cases?
+
+Second, when there are many rows, I should group them. In this case (trade paper), the rubric provides a natural grouping. Alternatively, I can group them by the weights of each criterion.
+
+
+
+
 ## Another class
 
 ```{r}
