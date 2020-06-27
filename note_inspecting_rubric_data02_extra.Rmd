@@ -144,20 +144,7 @@ Summary of the data:
 summary(df)
 ```
 
-What are those missing values?
-```{r}
-summary(df[is.na(df$Semester), ])
-table(df[is.na(df$Semester), 1])
-```
-
-Concentrated on the rubric id `113393`. Shall I ask Jon about it?
-
-Anyway, separate them for now.
-```{r}
-df.na <- df[is.na(df$Semester), ]
-df <- df[!is.na(df$Semester), ]
-summary(df)
-```
+`113393` missing course ID, Semester, etc.
 
 ## Separate
 Data are mixture of assessment and attributes.
@@ -166,31 +153,33 @@ Data are mixture of assessment and attributes.
 list.levels <- levels(df$LevelAchieved)
 list.levels
 ```
+
+### Drop this
 Separate those two by pattern matching.
 ```{r}
 achievements1 <- c("Unsatisfactory", "Developing", "Basic", "Proficient", "Advanced")
 achievements2 <- c("Unacceptable", "Rudimentary", "Fair", "Good", "Excellent")
 pttrn <- paste(c(achievements1, achievements2), collapse = "|")
 
-mdf <- df[grepl(pttrn, df$LevelAchieved), ]
-sdf <- df[!grepl(pttrn, df$LevelAchieved), ]
-mdf$LevelAchieved <- droplevels(mdf$LevelAchieved)
-sdf$LevelAchieved <- droplevels(sdf$LevelAchieved)
+#mdf <- df[grepl(pttrn, df$LevelAchieved), ]
+#sdf <- df[!grepl(pttrn, df$LevelAchieved), ]
+#mdf$LevelAchieved <- droplevels(mdf$LevelAchieved)
+#sdf$LevelAchieved <- droplevels(sdf$LevelAchieved)
+mdf <- df
 ```
 
-Now this `mdf` only contains rubrics with achievment levels.
-```{r}
-table(mdf$LevelAchieved)
-```
 
 
 Moreover, standardize levels. As seen in Note 1, those levels can be inconsistent even with the same instructor (e.g. me) across semesters.
 ```{r}
-mdf <- mdf %>% mutate(LevelAchieved = str_extract(mdf$LevelAchieved, pttrn))
+mdf <- mdf %>% mutate(
+  LevelAchieved.Original = LevelAchieved,
+  LevelAchieved = str_extract(mdf$LevelAchieved, pttrn))
 names(achievements2) <- achievements1 # Use named list with str_replace_all
 mdf$LevelAchieved <- str_replace_all(mdf$LevelAchieved, achievements2)
 mdf$LevelAchieved <- ordered(mdf$LevelAchieved, levels = achievements2)
 
+table(mdf$LevelAchieved.Original)
 table(mdf$LevelAchieved)
 ```
 
@@ -229,9 +218,6 @@ Let's deal with them case by case for now. Then I can find a solution later.
 
 And... I've processed each case (course) in Note 2. Now, I'll handle the cases left for more investigations.
 
-> 1. BUS499 by Mark. Student numbers appear split, but there's no obvious error. "Company Profile" and "Course Profile" appear to be the same. Both are from Fall 2019. "Final Company Paper" and "Final Company Profile" are same as "Company Profile" are from 2020. Some changes can be confirmed by referencing Beth's: "Company Profile" is present as is; only paper there is "Ethics Case Paper", which might be the "Fianal Company Paper" in Mark's. Meanwhile, Mark's 2020 course apparently lacks "Annotated Bibliography", "Development Plan", and "GoVenture AAR". *Check scores for "Ethics Case Paper" and "Final Company Paper" and standardize names* and *Check if those several assignments have been dropped in spring 2020.*
-> 2. BUS499-GS1 by Beth. Suppose it's a typo for GW1. *Fix the typo.* ...Done.
-> 3. FIN-301,302. 302-01 by Chris has `rubricid` of `142052`. 301-002 by Nan has `rubricid` of `133643`, `133645`, and `133646`; although there are some typos. "Signature Assignment 3" should be from FIN301-002 like other rows. This entry also has the same `rubricid` as "Signature Assignment 4". *Check the rubric request list.*
 > 4. MGT300 by Beth. Entered earliest and we changed the survey with her feedback. ID 1 & 2 are Film Case and Burt's Bee. She re-entered those later, so *simply drop those early entries.* ...Done.
 > 5. MKT300 by Rich. This set of entries is a mystery. Probably, I need to talk to him.
 
@@ -361,11 +347,61 @@ levels(x$Name)
 So... there's no issue. There are just so many rows.
 
 
+```{r}
+ggplot(tdf, aes(Online, Met.bin)) + stat_summary(fun.y = mean, geom = "bar") + facet_wrap(vars(Name), ncol = 6)
+```
 
 ## FIN 301, 302
 `rubricid` of `133643`, `133645`, `133646` and `142052` are in the request list. Let's request Jon to retrieve those. But, before that, ask Nan for the correct rubric for "Signature Assignment 3" or "4".
 
 ## MGT 300
+Two rows have been dealt with already.
+
+```{r}
+tdf <- mdf %>% filter(Course == "MGT 300")
+tdf <- droplevels(tdf)
+#table(tdf$Name, tdf$`Assessment Name`)
+levels(tdf$Name)
+```
+```{r}
+table(tdf$Instructor)
+```
+The number of rows for Neeley's a bit strange.
+```{r}
+tdf[tdf$Instructor=="Neeley Shaw", c("RubricId", "UserId")]
+```
+One student? > Fixed. 30 students now.
+
+Original data has more rows fo `113397`. What's happening? > Fixed.
+
+```{r}
+summary(df[df$RubricId=="113397", ])
+```
+
+Level Achieved are missing, while scores are there.
+(Similar to `113393` that are removed. Bring them back in data cleaning.)
+Those are filtered out into another data set. *Update the code to keep the original variable* ...Done.
+
+In the next step, I'll need to sort out "Majors" out in visualization.
+
+Next, deal with criterion names.
+```{r}
+knitr::kable(table(tdf$Name, tdf$Instructor))
+```
+
+```{r}
+knitr::kable(table(tdf$Name, tdf$RubricId))
+```
+```{r}
+knitr::kable(table(tdf$Name, tdf$Semester))
+```
+
+Perhaps, some are dropped in Spring 2020. That would make more sense.
+```{r}
+knitr::kable(table(tdf$Instructor, tdf$Semesterter))
+```
+
+Neely taught this class only in Fall 2019, while Beth had a chance to update it on her own in Spring 2020.
 
 ## MKT 300
 
