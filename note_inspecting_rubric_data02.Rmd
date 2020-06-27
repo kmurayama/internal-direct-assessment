@@ -1,6 +1,11 @@
 ---
 title: "Note to Inspect Rubric Data 2"
-output: html_notebook
+output:
+  html_notebook:
+    toc: true
+    toc_float:
+      collapsed: false
+    theme: readable
 ---
 
 ```{r, echo=FALSE, include=FALSE}
@@ -26,7 +31,7 @@ Import the survey. Only the first 12 columns are relevant to those with rubrics.
 ```{r import-survey}
 fn <- "data/Tracking of Assessment of Student Learning Outcomes Data Collection.xlsx"
 res <- read_excel(fn, sheet = "Response0602")
-res <- res[res[, 9] == "Yes", ] # Use rubrics?
+res <- res[res$`I graded this assessment using a rubric on D2L.` == "Yes", ] # Use rubrics?
 res <- res[1:12]
 
 qs <- names(res)
