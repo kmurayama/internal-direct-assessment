@@ -1,11 +1,15 @@
 ---
 title: "Note to Inspect Rubric Data 2"
+author: Kentaro Murayama
+date: 2020/6/26
 output:
-  html_notebook:
-    toc: true
+  html_document:
+    code_folding: hide
+    toc: yes
     toc_float:
       collapsed: false
-    theme: readable
+    number_sections: true
+    theme: paper
 ---
 
 ```{r, echo=FALSE, include=FALSE}
@@ -568,3 +572,211 @@ table(tdf$Section, tdf$Instructor)
 Let's deal with this course later.
 
 ### BUS 771
+This course is simple like 381.
+```{r}
+tdf <- mdf %>% filter(Course == "BUS 771")
+tdf <- droplevels(tdf)
+table(tdf$Name, tdf$`Assessment Name`)
+```
+```{r}
+table(tdf$Section, tdf$`Assessment Name`)
+```
+```{r}
+table(tdf$Section, tdf$Instructor)
+```
+
+```{r edt-bus771}
+tdf <- tdf %>% mutate(Online = grepl("GW", Section))
+tdf$Met.bin <- case_when(tdf$Met.UND == "Met" ~ 1, TRUE ~ 0)
+```
+```{r}
+tdf %>% group_by(Name, Online) %>% summarise(Share = mean(Met.UND == "Met"))
+```
+
+### ECO 201
+See the previous section.
+
+### ECO 202
+
+```{r}
+tdf <- mdf %>% filter(Course == "ECO 202")
+tdf <- droplevels(tdf)
+table(tdf$Name, tdf$`Assessment Name`)
+```
+
+
+```{r}
+table(tdf$Section, tdf$`Assessment Name`)
+```
+
+
+```{r}
+table(tdf$Section, tdf$Instructor)
+```
+
+Standardize the assignment name to Ed's.
+```{r edt-eco202}
+pttr <- c("Part 1: Data Collection" = "Data Collection",
+          "Part 1: Time Series Plots" = "Time-series graphs",
+          "Part 2: Explain variable movements" = "Explain variable movements",
+          "Part 2: Short-run and long-run perspectives" = "Short-run and long-run perspectives",
+          "Part 2: Compare and contrast" = "Compare and contrast",
+          "Writing: citations" = "Citations",
+          "Writing: Grammar" = "Grammar",
+          "Writing: Structure" = "Structure")
+tdf <- tdf %>%
+  mutate(`Assessment Name` =
+           str_replace(`Assessment Name`,
+                       "^Cross-Country Gdp Comparison Paper$",
+                       "Gdp Comparison Paper"),
+         Name = str_replace_all(Name, pttr)
+           )
+tdf <- tdf %>% mutate(Online = grepl("GW", Section))
+tdf$Met.bin <- case_when(tdf$Met.UND == "Met" ~ 1, TRUE ~ 0)
+```
+
+```{r}
+tdf %>% group_by(Name, Online) %>% summarise(Share = mean(Met.UND == "Met"))
+```
+
+```{r}
+ggplot(tdf, aes(Online, Met.bin)) + stat_summary(fun.y = mean, geom = "bar") + facet_wrap(vars(Name), ncol = 6)
+```
+
+
+
+### ECO 421
+
+```{r}
+tdf <- mdf %>% filter(Course == "ECO 421")
+tdf <- droplevels(tdf)
+table(tdf$Name, tdf$`Assessment Name`)
+```
+
+
+```{r}
+table(tdf$Section, tdf$`Assessment Name`)
+```
+
+
+```{r}
+table(tdf$Section, tdf$Instructor)
+```
+
+```{r edt-eco421}
+tdf <- tdf %>% mutate(Online = grepl("GW", Section))
+tdf$Met.bin <- case_when(tdf$Met.UND == "Met" ~ 1, TRUE ~ 0)
+```
+
+```{r}
+tdf %>% group_by(Name, Online) %>% summarise(Share = mean(Met.UND == "Met"))
+```
+
+```{r}
+ggplot(tdf, aes(Online, Met.bin)) + stat_summary(fun.y = mean, geom = "bar") + facet_wrap(vars(Name), ncol = 6)
+```
+
+### FIN 301, 302
+No observation. It was in the survey but not in D2L data. How?
+
+### HRM 400
+```{r}
+tdf <- mdf %>% filter(Course == "HRM 400")
+tdf <- droplevels(tdf)
+table(tdf$Name, tdf$`Assessment Name`)
+```
+
+```{r}
+table(tdf$Section, tdf$`Assessment Name`)
+```
+
+
+```{r}
+table(tdf$Section, tdf$Instructor)
+```
+
+```{r edt-hrm400}
+tdf <- tdf %>% mutate(Online = grepl("GW", Section))
+tdf$Met.bin <- case_when(tdf$Met.UND == "Met" ~ 1, TRUE ~ 0)
+```
+
+```{r}
+tdf %>% group_by(Name, Online) %>% summarise(Share = mean(Met.UND == "Met"))
+```
+
+```{r}
+ggplot(tdf, aes(Online, Met.bin)) + stat_summary(fun.y = mean, geom = "bar") + facet_wrap(vars(Name), ncol = 6)
+```
+
+### MGT 300
+This one has somewhat strange thing going on. Why some have only the CLO? Perhaps Beth reentered?
+
+```{r}
+tdf <- mdf %>% filter(Course == "MGT 300")
+tdf <- droplevels(tdf)
+#table(tdf$Name, tdf$`Assessment Name`)
+levels(tdf$Name)
+```
+
+Looking at the spreadsheet, it's likely. And, yes.
+```{r}
+table(tdf$Section, tdf$`Assessment Name`)
+```
+This needs to be handled at the earlier stage.
+Like BUS 499. Come back to this course later.
+
+### MKT 300
+```{r}
+tdf <- mdf %>% filter(Course == "MKT 300")
+tdf <- droplevels(tdf)
+#table(tdf$Name, tdf$`Assessment Name`)
+levels(as.factor(tdf$Name))
+```
+
+GO and CLO are listed. Probably the intention of the data collection was not clear? It's Rich's class. He is very familiar with accreditation process itself. Then, probably the association between different objective levels and rubric was confusing to him.
+
+```{r}
+table(tdf$Section, tdf$`Assessment Name`)
+```
+
+I don't know how to reconcile this. GW1 has all the assignment, while 001 and 002 do not have any of Signature Assignments 1 & 2, yet 002 has Signature Assignment 2.
+
+```{r}
+table(tdf$Section, tdf$Instructor)
+```
+Another class I need to get back later.
+
+### MKT 401
+```{r}
+tdf <- mdf %>% filter(Course == "MKT 401")
+tdf <- droplevels(tdf)
+table(tdf$Name, tdf$`Assessment Name`)
+```
+
+```{r}
+table(tdf$Section, tdf$`Assessment Name`)
+```
+
+
+```{r}
+table(tdf$Section, tdf$Instructor)
+```
+
+```{r edt-mkt401}
+tdf <- tdf %>% mutate(Online = grepl("GW", Section))
+tdf$Met.bin <- case_when(tdf$Met.UND == "Met" ~ 1, TRUE ~ 0)
+```
+
+```{r}
+tdf %>% group_by(Name, Online) %>% summarise(Share = mean(Met.UND == "Met"))
+```
+
+One row in rubric (holistic?) and almost all 100% or near achieving. Hmm...
+
+```{r}
+ggplot(tdf, aes(Online, Met.bin)) + stat_summary(fun.y = mean, geom = "bar") + facet_wrap(vars(Name), ncol = 6)
+```
+
+# Next?
+It's about time to make a new notebook. Document ACBSP-related discussion to start it off. Continue with data-cleaning for those few classes. Check the survey data sheet and update the early-stage cleaning. Talk to some of the professors if needed. Combine the edits on assessment names and criteria, then I'll be ready to have prevalence of achievement for every class. Moreover, non-rubric assessment (in a separate sheet) should be incorporated.
+
