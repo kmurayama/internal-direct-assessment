@@ -218,9 +218,6 @@ Let's deal with them case by case for now. Then I can find a solution later.
 
 And... I've processed each case (course) in Note 2. Now, I'll handle the cases left for more investigations.
 
-> 4. MGT300 by Beth. Entered earliest and we changed the survey with her feedback. ID 1 & 2 are Film Case and Burt's Bee. She re-entered those later, so *simply drop those early entries.* ...Done.
-> 5. MKT300 by Rich. This set of entries is a mystery. Probably, I need to talk to him.
-
 # Investigate
 
 ## BUS 499
@@ -404,5 +401,36 @@ knitr::kable(table(tdf$Instructor, tdf$Semesterter))
 Neely taught this class only in Fall 2019, while Beth had a chance to update it on her own in Spring 2020.
 
 ## MKT 300
+I will need to talk with Rich for this... Thought let's try to clean up irrelevant objectives.
+
+
+```{r}
+tdf <- mdf %>% filter(Course == "MKT 300")
+tdf <- droplevels(tdf)
+#table(tdf$Name, tdf$`Assessment Name`)
+levels(as.factor(tdf$Name))
+```
+```{r}
+knitr::kable(table(tdf$Name, tdf$`Assessment Name`))
+```
+
+Actually, most belong to unique assignments. I can just use them as they are for now.
+
+```{r edt-mkt300}
+tdf <- tdf %>% mutate(Online = grepl("GW", Section))
+tdf$Met.bin <- case_when(tdf$Met.UND == "Met" ~ 1, TRUE ~ 0)
+```
+
+```{r}
+tdf %>% group_by(Name, Online) %>% summarise(Share = mean(Met.UND == "Met"))
+```
+
+```{r}
+ggplot(tdf, aes(Online, Met.bin)) + stat_summary(fun.y = mean, geom = "bar") + facet_wrap(vars(Name), ncol = 6)
+```
+
 
 # Next?
+Combine those edit for `Name` and `Assessment Name` into the data munging. Proceed to analysis, making the summary numbers for Standard 4.
+
+Meanwhile, ask Jon about the missing FIN courses.
