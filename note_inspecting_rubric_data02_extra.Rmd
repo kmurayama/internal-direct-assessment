@@ -238,8 +238,132 @@ And... I've processed each case (course) in Note 2. Now, I'll handle the cases l
 # Investigate
 
 ## BUS 499
+Review what I checked.
+```{r}
+tdf <- mdf %>% filter(Course == "BUS 499")
+tdf <- droplevels(tdf)
+levels(as.factor(tdf$`Assessment Name`))
+```
+```{r}
+knitr::kable(table(tdf$`Assessment Name`, tdf$Instructor))
+```
+
+Now, check the score ranges to compare assessments.
+Check scores for "Ethics Case Paper" and "Final Company Paper".
+```{r}
+ggplot(tdf) + geom_boxplot(aes(Score)) + facet_wrap(vars(`Assessment Name`))
+```
+
+Both are upt to score of 10, athough that's true for other assignments.
+
+```{r}
+with(tdf %>% filter(Semester == "Fall 2019") %>% droplevels(.),
+     knitr::kable(table(`Assessment Name`, Instructor))
+     )
+```
+
+Can I identify by criteria?
+```{r}
+knitr::kable(table(tdf$`Assessment Name`, tdf$Name))
+```
+
+- Course Profile?
+- Reflection and Development Plan?
+- Simulation AAR?
+
+Course Profile has "PLO2 Support analysis with appropriate scholarly and professional sources 5%" which is seen commonly in (both ver of ) "Company Profile [(Final Paper)]", "Final Company Paper" and "Final Company Profile". Perhaps Mark used different ones over sections?
+
+
+```{r}
+with(tdf %>% filter(Semester == "Fall 2019", Instructor == "Mark Lennon") %>% droplevels(.),
+     knitr::kable(table(`Assessment Name`, Section))
+     )
+```
+
+Yes, "Company Profile" (001) == "Course Profile" (002). Other two are simply not present.
+
+Next,
+```{r}
+with(tdf %>% filter(Semester == "Spring 2020") %>% droplevels(.),
+     knitr::kable(table(`Assessment Name`, Instructor))
+     )
+```
+
+- Final Company Paper?
+- (Final Company Profile?)
+
+"Final Company Paper" == "Company Profile" == "Final Company Profile".
+
+So, here's the edit. Standardize those names into Beth's name, "Company Profile (Final Paper)".
+
+```{r edit-bus499}
+profile <- "(^Final Company Paper$)|(^Company Profile$)|(^Final Company Profile$)|(^Course Profile$)"
+profile.new <- "Company Profile (Final Paper)"
+aar <- "Simulation After-Action Report \\(Also Submitted To Gen Ed For Evidence Of Problem Solving\\)"
+aar.new <- "Goventure Aar"
+
+tdf <- tdf %>% mutate(
+  `Assessment Name` = str_replace(`Assessment Name`, profile, profile.new),
+  `Assessment Name` = str_replace(`Assessment Name`, aar, aar.new))
+knitr::kable(table(tdf$`Assessment Name`))
+tdf <- tdf %>% mutate(Online = grepl("GW", Section))
+tdf$Met.bin <- case_when(tdf$Met.UND == "Met" ~ 1, TRUE ~ 0)
+```
+
+
+Check:
+```{r}
+tdf %>% group_by(Name, Online) %>% summarise(Share = mean(Met.UND == "Met"))
+```
+
+Forgot that. Need to fix criteria as well.
+
+```{r}
+l <- levels(as.factor(tdf$`Assessment Name`))
+print(paste("For,", l[[1]]))
+x <- tdf %>% filter(`Assessment Name` == l[[1]])
+x <- droplevels(x)
+levels(x$Name)
+```
+```{r}
+print(paste("For,", l[[2]]))
+x <- tdf %>% filter(`Assessment Name` == l[[2]])
+x <- droplevels(x)
+levels(x$Name)
+```
+
+```{r}
+print(paste("For,", l[[3]]))
+x <- tdf %>% filter(`Assessment Name` == l[[3]])
+x <- droplevels(x)
+levels(x$Name)
+```
+
+```{r}
+print(paste("For,", l[[4]]))
+x <- tdf %>% filter(`Assessment Name` == l[[4]])
+x <- droplevels(x)
+levels(x$Name)
+```
+```{r}
+print(paste("For,", l[[5]]))
+x <- tdf %>% filter(`Assessment Name` == l[[5]])
+x <- droplevels(x)
+levels(x$Name)
+```
+```{r}
+print(paste("For,", l[[6]]))
+x <- tdf %>% filter(`Assessment Name` == l[[6]])
+x <- droplevels(x)
+levels(x$Name)
+```
+
+So... there's no issue. There are just so many rows.
+
+
 
 ## FIN 301, 302
+`rubricid` of `133643`, `133645`, `133646` and `142052` are in the request list. Let's request Jon to retrieve those. But, before that, ask Nan for the correct rubric for "Signature Assignment 3" or "4".
 
 ## MGT 300
 
