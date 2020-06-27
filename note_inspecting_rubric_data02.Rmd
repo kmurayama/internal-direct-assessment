@@ -243,7 +243,7 @@ Let's deal with them case by case for now. Then I can find a solution later.
 Finally, the data is (sufficiently) ready for inspection.
 Let's pick a few classes and examine.
 
-## ECO 201
+## ECO 201 as a Sample
 ECO 201 data has been checked in Note 1. However, any disaggregation by criterion was not done. Apparently, there are quite a bit of variations in criterion wording. Even worse than achievement levels.
 
 ```{r}
@@ -382,7 +382,7 @@ Given the Pass/No Credit (P/NC) policy allowed students to "give up" on big assi
 
 Regardless, I will need information about withdraw etc. It'll be easy to add that information at the aggregate (e.g. how much proportion of students withdrew this semester? - This wouldn't alter the score averages as long as they are removed from D2L.) It can be challenging or impossible to match individuals.
 
-### ACBSP Reports
+### ACBSP Reports?
 For reports, we need some aggregates. Many of rubric outcomes are used for internal assessment as prevalence of achievements, or how much proportion of students achieved the goal.
 
 Luckily, this is already measured following Beth's notes.
@@ -408,7 +408,7 @@ ggplot(tdf, aes(Online, Met.bin)) + stat_summary(fun.y = mean, geom = "bar") + f
 
 I can look at 1) absolute level against the goal (75% or so?); 2) differences between groups. For latter, I can plot the original achievement levels together with prevalence (like in Survey report). Also plot of Scores should give a qualitatively the same information, but more explicit about each weight on criterion.
 
-#### More on ACBSP
+## More on ACBSP
 I asked Beth about what needs to be in. She's explained it in the meeting, but I got those mixed up. She further clarified them for me. I've been basing my idea on the existing report done by Ed last two (or more?) years. I need to follow them, but also need to understand the ACBSP requirements/expectations to address their notes. ...And, moreover, turn things into opportunity for improvement.
 
 For *Standard 4*, we need "trend data for every program and each major/concentration/certificate" to show the systematic assessment of student learning. To remind myself, here's the quote from ACBSP:
@@ -441,3 +441,130 @@ Finally, *Standard 6* is the detailed analysis and "closing the loop" through cu
 Beth places this step as after we see trends in Standard 4, combining "specialized Peregrine runs and detailed analysis more detailed analysis of the D2L data". For instance, we can identify some assignment/assessment where students struggle, then we can trace the trend over time to see how this issue can be addressed. Peregrine survey outcome questions can be used here as well.
 
 In terms of my actions, then, this set of goals provides a better organization of output reports and priorities in analysis. I need to, first, have the aggregate trend data out *and share them with others* before moving on to the next step and adding detailed, multifaceted (wording?) analysis.
+
+## ACBSP Internal Direct
+Now, then, I can summarize the *prevalence of students' achievements* that will be used in direct, internal assessments. I'll need to match results with assessment (rubric rows to assessment tool), but I can just make graphs and tables for all and then map them.
+
+Also, I may want to merge three projects (direct external, direct internal, and indirect external) into one eventually. The alternative would be that I can prepare a document for mapping for each of those projects. Let's see which way would be easier to keep track. Don't forget Ahmet is working on direct external through Excel.
+
+So, first, I need to clean up all the criteria. I think it's easier if I tackle class by class. How many classes are there?
+```{r}
+nlevels(mdf$Course)
+```
+
+Just 13?? I guess the number was inflated by the sessions and several classes are just reported by non-rubric assessments. Here's the list of courses in this data:
+```{r}
+levels(mdf$Course)
+```
+
+### BUS 345
+As before, let's check criteria.
+```{r}
+tdf <- mdf %>% filter(Course == "BUS 345")
+tdf <- droplevels(tdf)
+levels(tdf$Name)
+```
+
+Looks like criterion names are well-standardized. Teachers are Neeley and Beth, so the coordination helped, I think? Anyway, I still need to confirm the course-criteria combinations.
+```{r}
+table(tdf$`Assessment Name`, tdf$Name)
+```
+
+I see. "Ethics Final Paper" = "Final Paper", judging from the criteria. Let's standardize it to "Ethics Final Paper" (Beth's).
+
+Alright, ready to update the data. (Also, repeat the Online indicator variable.)
+```{r edt-bus345}
+tdf <- tdf %>% mutate(`Assessment Name` = str_replace(`Assessment Name`, "^Final Paper$", "Ethics Final Paper"))
+tdf <- tdf %>% mutate(Online = grepl("GW", Section))
+tdf$Met.bin <- case_when(tdf$Met.UND == "Met" ~ 1, TRUE ~ 0)
+table(tdf$`Assessment Name`)
+```
+
+Without grouping by Assessment, the prevalences are simply shown like this.
+```{r}
+tdf %>% group_by(Name) %>% summarise(Share = mean(Met.UND == "Met"))
+```
+
+Online vs F2F? First check the sections.
+```{r}
+table(tdf$Section, tdf$Online)
+```
+This is split by the two instructors.
+```{r}
+table(tdf$Section, tdf$Instructor)
+```
+So, any summary by Instructor will be identical to summary by Online. Keeping that in mind, here's the summary:
+```{r}
+tdf %>% group_by(Name, Online) %>% summarise(Share = mean(Met.UND == "Met"))
+```
+
+
+```{r}
+ggplot(tdf, aes(Online, Met.bin)) + stat_summary(fun.y = mean, geom = "bar") + facet_wrap(vars(Name), ncol = 6)
+```
+
+There are many "extra" criteria only in the online class (not due to wording differences). Some assignments are not collected for F2F?
+
+```{r}
+table(tdf$Section, tdf$`Assessment Name`)
+```
+
+Oh... Annotated Bibliography and Ethics Reflection are not submitted by Neeley. Is this intended? Check with Beth. Other than that, it looks all good.
+
+### BUS 381
+Next, BUS 381. This one is simpler. Only one section offered for online, one assignment, and one instructor.
+```{r}
+tdf <- mdf %>% filter(Course == "BUS 381")
+tdf <- droplevels(tdf)
+table(tdf$Name, tdf$`Assessment Name`)
+```
+```{r}
+table(tdf$Section, tdf$`Assessment Name`)
+```
+```{r}
+table(tdf$Section, tdf$Instructor)
+```
+
+```{r edt-bus381}
+tdf <- tdf %>% mutate(Online = grepl("GW", Section))
+tdf$Met.bin <- case_when(tdf$Met.UND == "Met" ~ 1, TRUE ~ 0)
+```
+So, nothing much to compare.
+```{r}
+tdf %>% group_by(Name, Online) %>% summarise(Share = mean(Met.UND == "Met"))
+```
+
+
+```{r}
+ggplot(tdf, aes(Online, Met.bin)) + stat_summary(fun.y = mean, geom = "bar") + facet_wrap(vars(Name), ncol = 6)
+```
+
+### BUS 499
+Here you go. BUS 499!
+```{r}
+tdf <- mdf %>% filter(Course == "BUS 499")
+tdf <- droplevels(tdf)
+#table(tdf$Name, tdf$`Assessment Name`)
+levels(as.factor(tdf$`Assessment Name`))
+```
+Assessment name variations are between Beth and Mark.
+```{r}
+table(tdf$Instructor, tdf$`Assessment Name`)
+```
+
+Somehow, several of Mark's assignments seem to be split? "Company Profile", "Ethics Case Paper", "Final Company Paper", and "Final Company Profile" have less students. Meanwhile, Beth also has "Company Profile ..." with only 195 rows.
+
+To reconcile these, I need to check the rubric and probably talk to them. ...Or, perhaps I can use rubric rows?
+
+```{r}
+table(tdf$Instructor, tdf$Name)
+```
+
+Also, error in the course name? I think she noted that.
+```{r}
+table(tdf$Section, tdf$Instructor)
+```
+
+Let's deal with this course later.
+
+### BUS 771
