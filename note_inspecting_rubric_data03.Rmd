@@ -353,3 +353,150 @@ p_met_und("MKT")
 ```
 
 There are more things to address though. Pause here.
+
+## Pick Assessments
+
+### Business
+
+- PLO1 Both use Peregrine
+- PLO2 Internal: Annotated bibliography (rubric--milestone in company profile) 
+- PLO3 Internal: Company profile, rubric graded project.  Rubric rows  PLO3 a, b, c, d, e 
+- PLO4 Internal: BUS 499 Capstone Simulation, AAR Rows PLO4 a, b
+
+- PLO5 Internal: BUS 499 Company profile project, Rubric rows PLO2 a, b, c, d 
+- PLO6 Internal: BUS 499 Company profile Rows PLO2 e, f, g
+
+- PLO7 Internal: BUS 499 International ethics case.  Rubric Rows PLO8 a,b,C 
+- PLO8 Internal: BUS 499 International ethics case, Rubric Rows PLO7 a,b,C
+
+- PLO9 Internal: Simulation Peer Feedback #2, total score (BUS 499 Team simulation) >> Updated: AAR Rubric Rows PLO9a + PLO9b, 90% achieving "usually" or "always"
+- PLO10 Internal: Final reflection paper. BUS 499 Reflection and Development Plan Rows 1 and 2
+
+
+```{r}
+tbl <- mdf %>% filter(str_detect(Name, "Major|Minor", negate = TRUE)) %>%
+  group_by(Course, `Assessment Name`, Name) %>%
+  summarise(across(ends_with(".bin"), mean, na.rm = TRUE), n = n())
+knitr::kable(tbl, digits=2)
+```
+
+#### PLO2
+```{r}
+ggplot(tbl %>% filter(`Assessment Name`=="Annotated Bibliography" & Course == "BUS 499")) +
+  geom_col(aes(str_wrap(Name, 20), Met.UND.bin)) + coord_flip() +
+  geom_hline(yintercept = 0.70, color = "red")
+```
+
+Collect PLO2 rows? How has it been calculated in the past?
+```{r}
+res <- tbl %>%
+  filter(`Assessment Name`=="Annotated Bibliography" & Course == "BUS 499" & 
+           str_detect(Name, "Plo2"))
+avg <- res %>% summarize(Share = mean(Met.UND.bin), n = mean(n))
+
+knitr::kable(avg, digits=2)
+```
+
+
+#### PLO3-6
+
+```{r}
+ggplot(tbl %>% filter(`Assessment Name`=="Company Profile (Final Paper)" & Course == "BUS 499")) +
+  geom_col(aes(str_wrap(Name, 20), Met.UND.bin)) + coord_flip() +
+  geom_hline(yintercept = 0.70, color = "red")
+
+```
+
+```{r}
+x <- tbl %>% filter(`Assessment Name`=="Company Profile (Final Paper)" & Course == "BUS 499")
+levels(factor(x$Name))
+```
+
+```{r}
+res <- x %>% filter(str_detect(Name, "Plo")) %>% 
+  mutate(PLO = str_extract(Name, "Plo[1-9]")) %>% 
+  group_by(PLO) %>% summarize(mean(Met.UND.bin), n = mean(n))
+knitr::kable(res, digits=2)
+```
+
+
+#### PLO7-8
+```{r}
+x <- tbl %>% filter(`Assessment Name`=="Ethics Case Paper" & Course == "BUS 499")
+levels(factor(x$Name))
+```
+
+Why PLO1 PLO2?
+
+
+```{r}
+res <- x %>% filter(str_detect(Name, "Plo")) %>% 
+  mutate(PLO = str_extract(Name, "Plo[1-9]")) %>% 
+  group_by(PLO) %>% summarize(mean(Met.UND.bin), n = mean(n))
+knitr::kable(res, digits=2)
+```
+
+#### PLO9
+```{r}
+x <- tbl %>% filter(`Assessment Name`=="Goventure Aar" & Course == "BUS 499")
+levels(factor(x$Name))
+```
+
+Again, some other PLO listed. Updated?
+
+```{r}
+res <- x %>% filter(str_detect(Name, "Plo")) %>% 
+  mutate(PLO = str_extract(Name, "Plo[1-9]")) %>% 
+  group_by(PLO) %>% summarize(mean(Met.UND.bin), n = mean(n))
+knitr::kable(res, digits=2)
+```
+
+Wait. "Usually" or "Always"? How are they counted into "Met" then?
+
+
+```{r}
+x <- mdf %>% filter(`Assessment Name`=="Goventure Aar" & Course == "BUS 499")
+x <- x %>% filter(str_detect(Name, "Major|Minor", negate = TRUE))
+x <- droplevels(x)
+summary(x$LevelAchieved.Original)
+```
+
+So, it was measured as achievment to begin with...?
+
+
+#### PLO10
+
+```{r}
+x <- tbl %>% filter(`Assessment Name`=="Reflection And Development Plan" & Course == "BUS 499")
+levels(factor(x$Name))
+```
+```{r}
+res <- x %>% 
+  group_by(Name) %>% summarize(mean(Met.UND.bin), n = mean(n))
+knitr::kable(res, digits=2)
+```
+
+I don't know which are Rows 1 and 2. Report all.
+
+Everyone passed?
+
+```{r}
+x <- mdf %>% filter(`Assessment Name`=="Reflection And Development Plan" & Course == "BUS 499")
+x <- x %>% filter(str_detect(Name, "Major|Minor", negate = TRUE))
+x <- droplevels(x)
+summary(x$LevelAchieved.Original)
+```
+
+
+Also, ToDo: Merge "Development Plan". Obviously the same assignment.
+```{r}
+x <- mdf %>% filter(`Assessment Name`=="Development Plan" & Course == "BUS 499")
+x <- x %>% filter(str_detect(Name, "Major|Minor", negate = TRUE))
+x <- droplevels(x)
+summary(x$LevelAchieved.Original)
+```
+
+It won't change the prevalence though.
+
+#### Trend
+Now I want to merge these into the past data. I have them stored in the data sheet... What would be an easy way? Store those results into a table identified by PLO and add the (academic) year 2019, then that would be sufficient?
