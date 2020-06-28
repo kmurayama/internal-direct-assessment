@@ -1,0 +1,205 @@
+---
+title: "Note to Inspect Rubric Data 3"
+output:
+  html_notebook:
+    toc: true
+    toc_float:
+      collapsed: false
+    theme: paper
+---
+
+
+# Objective
+Data are mostly cleaned and organized through examining each course. Bring back those procedures into the data munging stage and produce the base statistics for Standard 4.
+
+# Set up
+
+```{r, echo=FALSE, include=FALSE}
+#knitr::opts_chunk$set(message = FALSE, warning = FALSE)
+library(tidyverse)
+library(readxl)
+```
+
+## Import D2L Rubric Outcomes
+```{r import-d2l}
+fn <- "data/Rubrics.xlsx"
+df <- read_xlsx(fn) %>%
+  mutate(across(c(RubricId:Name, LevelAchieved), factor),
+         IsScoreOverridden = (IsScoreOverridden == "True"))
+```
+
+## Import Survey
+As before, import the first 12 columns that are relevant to rubrics. Alter lengthy column names for convenience.
+```{r import-survey}
+fn <- "data/Tracking of Assessment of Student Learning Outcomes Data Collection.xlsx"
+res <- read_excel(fn, sheet = "Response0602")
+res <- res[res$`I graded this assessment using a rubric on D2L.` == "Yes", ]
+res <- res[1:12]
+
+qs <- names(res)
+responder.info <- c("ID", "Started", "Completed", "Email", "Name")
+course.info <- c("Semester", "Course")
+assessment.info <- c("Assessment Name", "Rubric Usage")
+rubric.info <- c("URL", "Intrepretation", "Action for Improvement")
+names(res) <- c(responder.info, course.info, assessment.info, rubric.info)
+```
+
+## Clean Up Survey
+Need to drop some error entries. One is Ed's entry later on. There are two early entries by Beth before we changed the survey questions. Neeley's entry has two rubrics, so need to split them.
+```{r drop-entries}
+res <- res[res$ID != 1 & res$ID != 2, ] # Drop early error entries
+
+assess.name <- res[res$ID == 41, c("Assessment Name", "URL")] # Keep double entry 
+anames <- str_split(assess.name$`Assessment Name`, ",", simplify = TRUE)
+urls <- str_split(assess.name$URL, "Burts", simplify = TRUE)
+
+x <- res[res$ID == 41, ]
+x$ID <- nrow(res)
+x[c("Assessment Name", "URL")] <- list(anames[2], urls[2])
+res[res$ID == 41, c("Assessment Name", "URL")] <- list(anames[1], urls[1])
+res[res$ID == 159, ] <- x # Replace Ed's entry with the modified Neeley's
+```
+
+Course names have some minor errors. It'll be easier if correcting them and split its components for later use.
+```{r clean-course}
+x <- res$Course
+x <- str_replace(x, "GW[I|!]", "GW1") # Replace some typos
+x <- str_replace(x, "GS1", "GW1") # Replace some typos
+x <- str_remove(x, "[0-9]{4,}") # Remove leading time stamp
+x <- str_replace(x, "BS[U]?", "BUS") # Replace less critical typo
+x <- str_replace(x, "-01", "-001") # Replace less critical typo
+
+cid1 <- str_match(x, "[A-Z]{2,3}") # Extract course program (e.g. BUS, MKT)
+cid2 <- str_extract_all(x, "(CD|G[WS])?[0-9]{1,3}", simplify = TRUE) # Extract
+res$Course <- paste(cid1, cid2[, 1]) # Then merge for course id e.g. MGT 300
+res$Section <- paste(cid1, cid2[, 1], cid2[, 2]) # Likewise, e.g. MGT 300 001
+
+```
+
+Clean assessment names and criterion names (i.e. rubric rows). Start by standardizing upper/lower cases.
+```{r clean-assessment}
+res$`Assessment Name` <- str_to_title(res$`Assessment Name`) # Good enough
+
+pttrn.bus345 <- c("Ethics Final Paper" = "^Final Paper$")
+pttrn.bus499 <-
+  c("Company Profile (Final Paper)" = "(^Final Company Paper$)|(^Company Profile$)|(^Final Company Profile$)|(^Course Profile$)",
+    "Goventure Aar" = "Simulation After-Action Report \\(Also Submitted To Gen Ed For Evidence Of Problem Solving\\)")
+pttrn.eco202.a <- c("Gdp Comparison Paper" = "^Cross-Country Gdp Comparison Paper$")
+pttrn.eco202.n <- 
+  c("Part 1: Data Collection" = "Data Collection",
+    "Part 1: Time Series Plots" = "Time-series graphs",
+    "Part 2: Explain variable movements" = "Explain variable movements",
+    "Part 2: Short-run and long-run perspectives" = "Short-run and long-run perspectives",
+    "Part 2: Compare and contrast" = "Compare and contrast",
+    "Writing: citations" = "Citations",
+    "Writing: Grammar" = "Grammar",
+    "Writing: Structure" = "Structure")
+
+pttrn.assess <- c(pttrn.bus345, pttrn.bus499, pttrn.eco202.a)
+pttrn.name <- c(pttrn.eco202.n)
+
+res <- res %>%
+  mutate(`Assessment Name` = str_replace_all(`Assessment Name`, pttrn.assess),
+         Name = str_replace_all(Name, pttrn.name))
+
+```
+
+
+
+Lastly, prepare for merge. Need to have unique IDs.
+```{r extract-rubricid}
+x <- str_extract_all(res$URL, "rubricId=[0-9]{6}", simplify=TRUE)
+res$RubricId <- factor(str_extract_all(x, "[0-9]{6}", simplify=TRUE))
+```
+```{r, eval=FALSE}
+tbl <- table(res$RubricId)
+dups <- tbl[tbl > 1]
+res[res$RubricId==names(dups)[1], ]
+# Drop 2, 22
+res[res$RubricId==names(dups)[2], ]
+# Drop 41 (see the note)
+res[res$RubricId==names(dups)[3], ]
+# Drop 77 Why resubmit?
+res[res$RubricId==names(dups)[4], ]
+# Drop 71 ?
+res[res$RubricId==names(dups)[5], ]
+# Drop 1
+res[res$RubricId==names(dups)[6], ]
+# Drop 83 ?
+res[res$RubricId==names(dups)[7], ]
+# Drop 88 ?
+res[res$RubricId==names(dups)[8], ]
+# Different sections but provided same ID. Actual error. Drop 116.
+res[res$RubricId==names(dups)[9], ]
+# Drop 37
+res[res$RubricId==names(dups)[10], ]
+# Drop 93 ?
+res[res$RubricId==names(dups)[11], ]
+# Drop 92 ?
+```
+```{r}
+id.drop <- c(2, 22, 41, 77, 71, 1, 83, 88, 116, 37, 93, 92)
+res <- res %>% filter(!ID %in% id.drop)
+```
+
+And trim some variables and format.
+```{r }
+res <- res %>%
+  mutate(across(c(ID, Email:Semester, Section:Course), factor) )
+```
+
+## Merge
+Merge the survey data into the D2L.
+```{r}
+dim(df)
+mdf <- df %>%
+  left_join(res %>% select(RubricId, Instructor = Name, Course,
+                           `Assessment Name`, Semester,
+                           Section, Course), by="RubricId")
+dim(mdf)
+```
+
+# Munge Data
+Summary of the data:
+```{r}
+summary(mdf)
+```
+
+`113393` missing course ID, Semester, etc.
+
+## Standardize Achievment Levels
+Standardize levels. As seen in Note 1, those levels can be inconsistent even with the same instructor (e.g. me) across semesters.
+```{r}
+achievements1 <- c("Unsatisfactory", "Developing", "Basic", "Proficient", "Advanced")
+achievements2 <- c("Unacceptable", "Rudimentary", "Fair", "Good", "Excellent")
+pttrn <- paste(c(achievements1, achievements2), collapse = "|")
+
+mdf <- mdf %>% mutate(
+  LevelAchieved.Original = LevelAchieved,
+  LevelAchieved = str_extract(mdf$LevelAchieved, pttrn))
+names(achievements2) <- achievements1 # Use named list with str_replace_all
+mdf$LevelAchieved <- str_replace_all(mdf$LevelAchieved, achievements2)
+mdf$LevelAchieved <- ordered(mdf$LevelAchieved, levels = achievements2)
+
+table(mdf$LevelAchieved.Original)
+table(mdf$LevelAchieved)
+```
+
+## New Variables
+Add the achievement indicator variables for undergrad and grad levels.
+```{r}
+mdf <- mdf %>% mutate(
+  Met.UND = case_when(is.na(LevelAchieved) ~ "Missing",
+    LevelAchieved == "Excellent" | LevelAchieved == "Good" |
+      LevelAchieved == "Fair" ~ "Met",
+    TRUE ~ "Not Met"),
+  Met.GRD = case_when(is.na(LevelAchieved) ~ "Missing",
+    LevelAchieved == "Excellent" | LevelAchieved == "Good" ~ "Met",
+    TRUE ~ "Not Met")
+  )
+table(mdf$LevelAchieved, mdf$Met.GRD)
+tdf <- tdf %>% mutate(Online = grepl("GW", Section))
+tdf$Met.bin <- case_when(tdf$Met.UND == "Met" ~ 1, TRUE ~ 0)
+```
+
+# Investigate

@@ -11,3 +11,5 @@ data/*
 !data/README.md
 
 *html
+*knit.md
+*utf8.md
