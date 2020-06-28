@@ -140,7 +140,8 @@ summary(mdf)
 ## Clean assessment and criterion names
 Clean assessment names and criterion names (i.e. rubric rows). Start by standardizing upper/lower cases.
 ```{r clean-assessment}
-mdf$`Assessment Name` <- str_to_title(mdf$`Assessment Name`) # Good enough
+mdf$`Assessment Name` <- str_to_title(mdf$`Assessment Name`)
+mdf$Name <- str_to_title(str_remove(mdf$Name, '^"'))
 
 pttrn.bus345 <- c("^Final Paper$" = "Ethics Final Paper")
 pttrn.bus499 <-
@@ -150,23 +151,24 @@ pttrn.eco201.a <- c("International Trade Signature Assignment" = "Trade Policy P
 pttrn.eco201.n <- c("^Arguments For Protection$"="Arguments For Protectionism",
                     "^Citations$"="Citations/References",
                     "^Structure$"="Structure/Clarity",
-                    "Winners/Losers"="Winners And Losers")
+                    "^Winners/Losers$"="Winners And Losers",
+                    "^Writing: Citations$"="Writing: Citations/References")
 pttrn.eco202.a <- c("^Cross-Country Gdp Comparison Paper$" = "Gdp Comparison Paper")
 pttrn.eco202.n <- 
-  c("Data Collection" = "Part 1: Data Collection",
-    "Time-series graphs" = "Part 1: Time Series Plots",
-    "Explain variable movements" = "Part 2: Explain variable movements",
-    "Short-run and long-run perspectives" = "Part 2: Short-run and long-run perspectives",
-    "Compare and contrast" = "Part 2: Compare and contrast",
-    "Citations" = "Writing: citations",
-    "Grammar" = "Writing: Grammar",
-    "Structure" = "Writing: Structure")
+  c("^Data Collection$" = "Part 1: Data Collection",
+    "^Time-Series Graphs$" = "Part 1: Time Series Plots",
+    "^Explain Variable Movements$" = "Part 2: Explain Variable Movements",
+    "^Short-Run And Long-Run Perspectives$" = "Part 2: Short-Run And Long-Run Perspectives",
+    "^Compare And Contrast$" = "Part 2: Compare And Contrast",
+    "^Citations$" = "Writing: Citations",
+    "^Grammar$" = "Writing: Grammar",
+    "^Structure$" = "Writing: Structure")
 
 pttrn.assess <- c(pttrn.bus345, pttrn.bus499, pttrn.eco202.a, pttrn.eco201.a)
 pttrn.name <- c(pttrn.eco202.n, pttrn.eco201.n)
 
 mdf <- mdf %>%
-  mutate(Name <- str_remove(Name, '^"'),
+  mutate(Name = str_remove(Name, '^"'),
          `Assessment Name` = str_replace_all(`Assessment Name`, pttrn.assess),
          Name = str_replace_all(Name, pttrn.name))
 ```
@@ -227,32 +229,127 @@ knitr::kable(tbl, digits = 2)
 
 ```{r, fig.width=9, fig.height=14}
 ggplot(tbl %>% filter(str_detect(Course, "BUS"))) +
-  geom_col(aes(str_sub(Name, 1, 20), Met.UND.bin)) + coord_flip() + 
+  geom_col(aes(str_sub(Name, 1, 30), Met.UND.bin)) + coord_flip() + 
 #  facet_wrap(Course ~ `Assessment Name`, scale = "free")
   facet_wrap(vars(Course, `Assessment Name`), scales = "free", ncol=2)
 ```
 ```{r, fig.width=9, fig.height=14}
 ggplot(tbl %>% filter(str_detect(Course, "ECO"))) +
-  geom_col(aes(str_sub(Name, 1, 20), Met.UND.bin)) + coord_flip() + 
+  geom_col(aes(str_sub(Name, 1, 35), Met.UND.bin)) + coord_flip() + 
   facet_wrap(vars(Course, `Assessment Name`), scales = "free", ncol=2)
 ```
 
 ```{r, fig.width=9, fig.height=14}
 ggplot(tbl %>% filter(str_detect(Course, "HRM"))) +
   geom_col(aes(str_sub(Name, 1, 20), Met.UND.bin)) + coord_flip() + 
-#  facet_grid(rows = vars(Course), cols = vars(`Assessment Name`))
   facet_wrap(vars(Course, `Assessment Name`), scales = "free", ncol=2)
 ```
 ```{r, fig.width=9, fig.height=14}
 ggplot(tbl %>% filter(str_detect(Course, "MGT"))) +
   geom_col(aes(str_sub(Name, 1, 20), Met.UND.bin)) + coord_flip() + 
-#  facet_grid(rows = vars(Course), cols = vars(`Assessment Name`))
   facet_wrap(vars(Course, `Assessment Name`), scales = "free", ncol=2)
 ```
 
 ```{r, fig.width=9, fig.height=14}
 ggplot(tbl %>% filter(str_detect(Course, "MKT"))) +
   geom_col(aes(str_sub(Name, 1, 20), Met.UND.bin)) + coord_flip() + 
-#  facet_grid(rows = vars(Course), cols = vars(`Assessment Name`))
   facet_wrap(vars(Course, `Assessment Name`), scales = "free", ncol=2)
 ```
+
+### Some are too low?
+Some numbers look strange.
+```{r}
+table(mdf$Met.GRD, mdf$LevelAchieved, useNA = "ifany")
+```
+
+```{r}
+table(mdf$Met.GRD, mdf$Met.GRD.bin, useNA = "ifany")
+```
+
+```{r}
+x <- mdf %>% filter(str_detect(Name, "Major|Minor", negate = TRUE)) 
+table(x$Met.GRD, x$Met.GRD.bin, useNA = "ifany")
+```
+
+Okay, missing values are counted as "Not Met".
+
+```{r}
+mdf[mdf$Met.GRD == "Missing", "Met.GRD.bin"] <- NA
+mdf[mdf$Met.UND == "Missing", "Met.UND.bin"] <- NA
+
+table(mdf$Met.GRD, mdf$Met.GRD.bin, useNA = "ifany")
+```
+
+
+```{r, fig.width=9, fig.height=14}
+tbl <- mdf %>% filter(str_detect(Name, "Major|Minor", negate = TRUE)) %>%
+  group_by(Course, `Assessment Name`, Name) %>%
+  summarise(across(ends_with(".bin"), mean, na.rm = TRUE))
+
+p_met_und <- function(prg) {
+  ggplot(tbl %>% filter(str_detect(Course, prg))) +
+  geom_col(aes(str_sub(Name, 1, 20), Met.UND.bin)) + coord_flip() + 
+  facet_wrap(vars(Course, `Assessment Name`), scales = "free", ncol=2) +
+  geom_hline(yintercept = 0.70, color = "red")
+}
+```
+```{r, fig.width=9, fig.height=14}
+p_met_und("HRM")
+```
+
+?
+
+```{r}
+x <- mdf %>% filter(Course == "HRM 400")
+summary(x)
+```
+```{r}
+#x %>% filter(Name =="Organizational Types") %>% group_by(LevelAchieved) %>% summarize(mean(Score))
+ggplot(x %>% filter(Name =="Organizational Types")) +
+  geom_bar(aes(LevelAchieved))
+```
+So... it was actually bad?
+
+Make sure the conversion was done properly.
+```{r}
+x <- droplevels(x)
+table(x$LevelAchieved, x$LevelAchieved.Original)
+```
+
+
+### Some are too high?
+Because of the truncation, some are merged together. > Fixed manually for now.
+
+## Macro Measure Again
+
+```{r}
+#programs <- levels(factor(str_sub(mdf$Course, 1, 3)))
+
+tbl <- mdf %>% filter(str_detect(Name, "Major|Minor", negate = TRUE)) %>%
+  group_by(Course, `Assessment Name`, Name) %>%
+  summarise(across(ends_with(".bin"), mean, na.rm = TRUE))
+
+p_met_und <- function(prg) {
+  ggplot(tbl %>% filter(str_detect(Course, prg))) +
+  geom_col(aes(str_wrap(Name, 20), Met.UND.bin)) + coord_flip() + 
+  facet_wrap(vars(Course, `Assessment Name`), scales = "free", ncol=2) +
+  geom_hline(yintercept = 0.70, color = "red")
+}
+```
+```{r, fig.width=9, fig.height=14}
+p_met_und("BUS")
+```
+```{r, fig.width=9, fig.height=14}
+p_met_und("ECO")
+```
+```{r, fig.width=9, fig.height=14}
+p_met_und("HRM")
+```
+```{r, fig.width=9, fig.height=14}
+p_met_und("MGT")
+```
+```{r, fig.width=9, fig.height=14}
+p_met_und("MKT")
+```
+
+There are more things to address though. Pause here.
