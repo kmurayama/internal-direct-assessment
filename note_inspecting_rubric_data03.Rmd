@@ -214,7 +214,8 @@ table(mdf$LevelAchieved, mdf$Met.UND, useNA = "ifany")
 Prevalence of Achievements will be used for internal assessments in ACBSP document. Let's just compute them all! Course-level (i.e. aggregate over sections and instructors) shares of students who achieved a passing level grades for each rubric row.
 
 ```{r}
-tbl <- mdf %>% group_by(Course, `Assessment Name`, Name) %>%
+tbl <- mdf %>% filter(str_detect(Name, "Major|Minor", negate = TRUE)) %>%
+  group_by(Course, `Assessment Name`, Name) %>%
   summarise(across(ends_with(".bin"), mean))
 knitr::kable(tbl, digits = 2)
 ```
