@@ -559,18 +559,15 @@ ggplot(out %>% filter(`Learning Objective Number` != 10),
   ggtitle("Business Core, Prevalence of Achievments Over Time, by PLO")
 ````
 
-- PLO2 Internal: Annotated bibliography (rubric--milestone in company profile) 
-- PLO3 Internal: Company profile, rubric graded project.  Rubric rows  PLO3 a, b, c, d, e 
-- PLO4 Internal: BUS 499 Capstone Simulation, AAR Rows PLO4 a, b
-
-- PLO5 Internal: BUS 499 Company profile project, Rubric rows PLO2 a, b, c, d 
-- PLO6 Internal: BUS 499 Company profile Rows PLO2 e, f, g
-
-- PLO7 Internal: BUS 499 International ethics case.  Rubric Rows PLO8 a,b,C 
-- PLO8 Internal: BUS 499 International ethics case, Rubric Rows PLO7 a,b,C
-
-- PLO9 Internal: Simulation Peer Feedback #2, total score (BUS 499 Team simulation) >> Updated: AAR Rubric Rows PLO9a + PLO9b, 90% achieving "usually" or "always"
-- PLO10 Internal: Final reflection paper. BUS 499 Reflection and Development Plan Rows 1 and 2>> Which?
+-	PLO2 Internal: Annotated bibliography (rubric–milestone in company profile) >> Found in Company Profile as well?
+-	PLO3 Internal: Company profile, rubric graded project. Rubric rows PLO3 a, b, c, d, e
+-	PLO4 Internal: BUS 499 Capstone Simulation, AAR Rows PLO4 a, b >> Capstone Simulation? Used one from Company Profile & AAR labelled as 4.
+-	PLO5 Internal: BUS 499 Company profile project, Rubric rows PLO2 a, b, c, d >> Used those labelled PLO5
+-	PLO6 Internal: BUS 499 Company profile Rows PLO2 e, f, g >> Used those labelled PLO6
+-	PLO7 Internal: BUS 499 International ethics case. Rubric Rows PLO8 a,b,C >> Included d and 3. Remove them.
+-	PLO8 Internal: BUS 499 International ethics case, Rubric Rows PLO7 a,b,C >> Included d. Remove it.
+-	PLO9 Internal: Simulation Peer Feedback #2, total score (BUS 499 Team simulation) >> Updated: AAR Rubric Rows PLO9a + PLO9b, 90% achieving “usually” or “always”
+-	PLO10 Internal: Final reflection paper. BUS 499 Reflection and Development Plan Rows 1 and 2>> Which?
 
 Also note that PLO 1 shouldn't be obtained from rubrics and some unexplained mismatches between PLO and assignments are there. These are all inclusive numbers.
 
