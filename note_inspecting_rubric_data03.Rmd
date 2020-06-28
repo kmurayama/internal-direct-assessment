@@ -146,6 +146,11 @@ pttrn.bus345 <- c("^Final Paper$" = "Ethics Final Paper")
 pttrn.bus499 <-
   c("(^Final Company Paper$)|(^Company Profile$)|(^Final Company Profile$)|(^Course Profile$)" = "Company Profile (Final Paper)",
      "Simulation After-Action Report \\(Also Submitted To Gen Ed For Evidence Of Problem Solving\\)" = "Goventure Aar")
+pttrn.eco201.a <- c("International Trade Signature Assignment" = "Trade Policy Paper")
+pttrn.eco201.n <- c("^Arguments For Protection$"="Arguments For Protectionism",
+                    "^Citations$"="Citations/References",
+                    "^Structure$"="Structure/Clarity",
+                    "Winners/Losers"="Winners And Losers")
 pttrn.eco202.a <- c("^Cross-Country Gdp Comparison Paper$" = "Gdp Comparison Paper")
 pttrn.eco202.n <- 
   c("Data Collection" = "Part 1: Data Collection",
@@ -157,8 +162,8 @@ pttrn.eco202.n <-
     "Grammar" = "Writing: Grammar",
     "Structure" = "Writing: Structure")
 
-pttrn.assess <- c(pttrn.bus345, pttrn.bus499, pttrn.eco202.a)
-pttrn.name <- c(pttrn.eco202.n)
+pttrn.assess <- c(pttrn.bus345, pttrn.bus499, pttrn.eco202.a, pttrn.eco201.a)
+pttrn.name <- c(pttrn.eco202.n, pttrn.eco201.n)
 
 mdf <- mdf %>%
   mutate(Name <- str_remove(Name, '^"'),
@@ -220,3 +225,34 @@ tbl <- mdf %>% filter(str_detect(Name, "Major|Minor", negate = TRUE)) %>%
 knitr::kable(tbl, digits = 2)
 ```
 
+```{r, fig.width=9, fig.height=14}
+ggplot(tbl %>% filter(str_detect(Course, "BUS"))) +
+  geom_col(aes(str_sub(Name, 1, 20), Met.UND.bin)) + coord_flip() + 
+#  facet_wrap(Course ~ `Assessment Name`, scale = "free")
+  facet_wrap(vars(Course, `Assessment Name`), scales = "free", ncol=2)
+```
+```{r, fig.width=9, fig.height=14}
+ggplot(tbl %>% filter(str_detect(Course, "ECO"))) +
+  geom_col(aes(str_sub(Name, 1, 20), Met.UND.bin)) + coord_flip() + 
+  facet_wrap(vars(Course, `Assessment Name`), scales = "free", ncol=2)
+```
+
+```{r, fig.width=9, fig.height=14}
+ggplot(tbl %>% filter(str_detect(Course, "HRM"))) +
+  geom_col(aes(str_sub(Name, 1, 20), Met.UND.bin)) + coord_flip() + 
+#  facet_grid(rows = vars(Course), cols = vars(`Assessment Name`))
+  facet_wrap(vars(Course, `Assessment Name`), scales = "free", ncol=2)
+```
+```{r, fig.width=9, fig.height=14}
+ggplot(tbl %>% filter(str_detect(Course, "MGT"))) +
+  geom_col(aes(str_sub(Name, 1, 20), Met.UND.bin)) + coord_flip() + 
+#  facet_grid(rows = vars(Course), cols = vars(`Assessment Name`))
+  facet_wrap(vars(Course, `Assessment Name`), scales = "free", ncol=2)
+```
+
+```{r, fig.width=9, fig.height=14}
+ggplot(tbl %>% filter(str_detect(Course, "MKT"))) +
+  geom_col(aes(str_sub(Name, 1, 20), Met.UND.bin)) + coord_flip() + 
+#  facet_grid(rows = vars(Course), cols = vars(`Assessment Name`))
+  facet_wrap(vars(Course, `Assessment Name`), scales = "free", ncol=2)
+```
