@@ -146,7 +146,8 @@ mdf$Name <- str_to_title(str_remove(mdf$Name, '^"'))
 pttrn.bus345 <- c("^Final Paper$" = "Ethics Final Paper")
 pttrn.bus499 <-
   c("(^Final Company Paper$)|(^Company Profile$)|(^Final Company Profile$)|(^Course Profile$)" = "Company Profile (Final Paper)",
-     "Simulation After-Action Report \\(Also Submitted To Gen Ed For Evidence Of Problem Solving\\)" = "Goventure Aar")
+     "Simulation After-Action Report \\(Also Submitted To Gen Ed For Evidence Of Problem Solving\\)" = "Goventure Aar",
+    "^Development Plan$" = "Reflection And Development Plan")
 pttrn.eco201.a <- c("International Trade Signature Assignment" = "Trade Policy Paper")
 pttrn.eco201.n <- c("^Arguments For Protection$"="Arguments For Protectionism",
                     "^Citations$"="Citations/References",
@@ -557,7 +558,7 @@ ggplot(out %>% filter(`Learning Objective Number` != 10),
   facet_wrap(vars(`Learning Objective Number`)) +
   theme_minimal() +
   ggtitle("Business Core, Prevalence of Achievments Over Time, by PLO")
-````
+```
 
 -	PLO2 Internal: Annotated bibliography (rubric–milestone in company profile) >> Found in Company Profile as well?
 -	PLO3 Internal: Company profile, rubric graded project. Rubric rows PLO3 a, b, c, d, e
@@ -570,4 +571,64 @@ ggplot(out %>% filter(`Learning Objective Number` != 10),
 -	PLO10 Internal: Final reflection paper. BUS 499 Reflection and Development Plan Rows 1 and 2>> Which?
 
 Also note that PLO 1 shouldn't be obtained from rubrics and some unexplained mismatches between PLO and assignments are there. These are all inclusive numbers.
+
+#### Response from Beth
+
+> Ken,
+> 
+> They are lovely!
+> 
+> You will see overlapping PLO in the different assessments. 
+> 
+> PLO2 is in most of them, but we only pull the assessment data out of the Annotated bibliography, as the others are just a general sort of "used sources in this project" general thing.
+> 
+> PLO10--just count rows 1 and 2==nothing else from the assessment. However you average/sum them. Pretty much everyone will pass. 
+> 
+> PLO1 is generic in the internal assessments. It's really geared toward maximizing the use of the Pergrine exam.
+> We will do better this year. Jake and I have been working pretty hard at it!
+> 
+> You are the best!
+
+Yay.
+
+So, then, let's clear them up a bit. Meanwhile, ask about PLO10.
+
+
+```{r}
+x <- tbl %>%
+  filter(Course == "BUS 499" & str_detect(Name, "Plo")) %>% 
+  mutate(PLO = str_extract(Name, "Plo[1-9]")) %>% 
+  group_by(`Assessment Name`, PLO) %>% summarize(Outcome = mean(Met.UND.bin),
+                                                 `Sample Size` = mean(n))
+knitr::kable(x, dig=2)  
+```
+
+So,
+- Use PLO2 only from Annotated Bibliography
+-	Use Company profile PLO3 a, b, c, d, e for PLO3
+-	PLO4 Internal: BUS 499 Capstone Simulation, AAR Rows PLO4 a, b >> Capstone Simulation? Used one from Company Profile & AAR labeled as 4. >> Still unclear.
+-	PLO5 Internal: BUS 499 Company profile project, Rubric rows PLO2 a, b, c, d >> Used those labeled PLO5 in Company Profile >> Still unclear
+-	PLO6 Internal: BUS 499 Company profile Rows PLO2 e, f, g >> Used those labeled PLO6 from three assignments >> Still unclear
+-	PLO7 Internal: BUS 499 International ethics case. Rubric Rows PLO8 a,b,C >> Included d and 3. Remove them.
+-	PLO8 Internal: BUS 499 International ethics case, Rubric Rows PLO7 a,b,C >> Included d. Remove it.
+-	PLO9 Internal: Simulation Peer Feedback #2, total score (BUS 499 Team simulation) >> Updated: AAR Rubric Rows PLO9a + PLO9b, 90% achieving “usually” or “always” >> Check the raw data and then ask about them
+-	PLO10 Internal: Final reflection paper. BUS 499 Reflection and Development Plan Rows 1 and 2>> Which?
+
+Hmm.. Not much to update yet. Let's wait for more clarifications this week.
+
+#### Completeness?
+On the related notes, let's clarify which assignments have been submitted from Mark.
+
+```{r}
+x <- mdf %>% filter(Course == "BUS 499")
+x <- droplevels(x)
+
+tbl <- x %>% group_by(Instructor, `Assessment Name`, Name) %>% summarise(n = n())
+tbl <- tbl %>% pivot_wider(id_cols = c(`Assessment Name`, Name),
+                           names_from = "Instructor", values_from = "n")
+knitr::kable(tbl)
+```
+
+"GoVenture AAR" and "Reflection and Development" are missing from Mark.
+
 
