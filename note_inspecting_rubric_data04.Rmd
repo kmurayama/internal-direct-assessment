@@ -1,0 +1,33 @@
+---
+title: "Note to Inspect Rubric Data 4"
+output:
+  html_notebook:
+    toc: true
+    toc_float:
+      collapsed: false
+    theme: paper
+---
+
+# Objective
+Data are mostly cleaned and organized through examining each course. Bring back those procedures into the data munging stage and produce the base statistics for Standard 4.
+
+# Set up
+
+```{r, echo=FALSE, include=FALSE}
+#knitr::opts_chunk$set(message = FALSE, warning = FALSE)
+library(tidyverse)
+library(readxl)
+```
+
+```{r}
+source('read.R')
+```
+
+```{r}
+source('munge.R')
+```
+
+```{r}
+summary(mdf)
+```
+
