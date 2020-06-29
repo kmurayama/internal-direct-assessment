@@ -28,6 +28,19 @@ df <- read_xlsx(fn) %>%
          IsScoreOverridden = (IsScoreOverridden == "True"))
 ```
 
+Check the content.
+```{r}
+fn2 <- "data/D2L Rubric Outcomes Request List.csv"
+df2 <- read.csv(fn2)
+head(df2)
+x <- str_extract(df2[, 1], "\\d{6}")
+
+indata <- levels(factor(df$RubricId))
+inreq <- levels(factor(x))
+
+(missing <- inreq[!inreq %in% indata])
+```
+
 ## Import Survey
 As before, import the first 12 columns that are relevant to rubrics. Alter lengthy column names for convenience.
 ```{r import-survey}
@@ -114,7 +127,7 @@ res <- res %>% filter(!ID %in% id.drop)
 
 And trim some variables and format.
 ```{r }
-res <- res %>%
+res.trim <- res %>%
   mutate(across(c(ID, Email:Semester, Section:Course), factor) )
 ```
 
@@ -123,9 +136,9 @@ Merge the survey data into the D2L.
 ```{r}
 dim(df)
 mdf <- df %>%
-  left_join(res %>% select(RubricId, Instructor = Name, Course,
-                           `Assessment Name`, Semester,
-                           Section, Course), by="RubricId")
+  left_join(res.trim %>% select(RubricId, Instructor = Name, Course,
+                                `Assessment Name`, Semester,
+                                Section, Course), by="RubricId")
 dim(mdf)
 ```
 
@@ -180,6 +193,8 @@ mdf <- mdf %>%
 ## Standardize Achievment Levels
 Standardize levels. As seen in Note 1, those levels can be inconsistent even with the same instructor (e.g. me) across semesters. *Extract* achievement levels from the mixture with other measures (i.e. attributes like major/minor, missing values) and some variants (e.g. 100%, 75%, etc.). Then standardize expressions.
 ```{r}
+mdf$LevelAchieved <- str_replace_all(mdf$LevelAchieved, fixed("Unsatisactory (<60%)"), "Unsatisfactory") # Fix a typo
+
 achievements1 <- c("Unsatisfactory", "Developing", "Basic", "Proficient", "Advanced")
 achievements2 <- c("Unacceptable", "Rudimentary", "Fair", "Good", "Excellent")
 names(achievements2) <- achievements1 # Named list as dictionary
@@ -592,7 +607,7 @@ Also note that PLO 1 shouldn't be obtained from rubrics and some unexplained mis
 > 
 > You are the best!
 
-Yay.
+Yay. :D
 
 So, then, let's clear them up a bit. Meanwhile, ask about PLO10.
 
@@ -615,7 +630,8 @@ So,
 -	PLO7 Internal: BUS 499 International ethics case. Rubric Rows PLO8 a,b,C >> Included d and 3. Remove them.
 -	PLO8 Internal: BUS 499 International ethics case, Rubric Rows PLO7 a,b,C >> Included d. Remove it.
 -	PLO9 Internal: Simulation Peer Feedback #2, total score (BUS 499 Team simulation) >> Updated: AAR Rubric Rows PLO9a + PLO9b, 90% achieving “usually” or “always” >> Check the raw data and then ask about them
--	PLO10 Internal: Final reflection paper. BUS 499 Reflection and Development Plan Rows 1 and 2>> Which?
+-	PLO10 Internal: Final reflection paper. BUS 499 Reflection and Development Plan Rows 1 and 2>> Which? >> Challenges (1) Leadership skills (2)
+
 
 Hmm.. Not much to update yet. Let's wait for more clarifications this week.
 
@@ -664,3 +680,79 @@ non
 ```
 Not much help here, although I need to handle those fields without any rubric data though... ACC and MIS
 
+
+## Missing Data?
+To follow up with the missing FIN courses. Let's examine the D2L data. I imported the request file in Section "Set up".
+
+```{r}
+missing
+```
+
+What courses are they?
+```{r}
+tbl <- res.trim %>% filter(RubricId %in% missing) %>% select(URL, Name, Semester, Course)
+knitr::kable(tbl)
+```
+
+Or...
+```{r}
+tbl %>% transmute(str_extract(URL, "\\d{6}"))
+```
+Requested Jon Kallis to check those URLs. 6/29/2020.
+
+Also noticed. `133646` is available. It just uses different achievment levels. ...This is a problem. Are there other rubrics that are excluded for the same reason?
+
+# Achievement Levels?
+From all the levels, remove all the Major|Minor questions:
+```{r}
+x <- mdf %>% filter(!str_detect(Name, "Major|Minor"))
+levels(factor(x$LevelAchieved.Original))
+```
+
+Remove those include the set of achievement levels:
+```{r}
+achievements1 <- c("Unsatisfactory", "Developing", "Basic", "Proficient", "Advanced")
+achievements2 <- c("Unacceptable", "Rudimentary", "Fair", "Good", "Excellent")
+names(achievements2) <- achievements1 # Named list as dictionary
+pttrn <- paste(c(achievements1, achievements2), collapse = "|")
+
+y <- x[!str_detect(x$LevelAchieved.Original, pttrn), ]
+
+levels(factor(y$LevelAchieved.Original))
+```
+
+Anyway, the list include of levels include things like "Level 2", "Unsatisfactory", etc. Need to check those.
+
+### Level #?
+Check with an instance "Level 2". What rubrics?
+```{r}
+x <- mdf %>% filter(LevelAchieved.Original == "Level 2")
+x <- droplevels(x)
+levels(x$RubricId)
+```
+Of courses:
+```{r}
+levels(x$Course)
+levels(x$Instructor)
+```
+
+Got it. What are those levels?
+```{r}
+mdf %>% filter(Course == "FIN 301", Instructor == "Nan Li") %>% group_by(LevelAchieved.Original) %>% summarise(n())
+```
+Suppose there's Level 1. Only 4 levels, or no one got Level 5? What would be considered "Proficiency"? Need to ask.
+
+### Unsatisfactory (<60%)?
+Similarly,
+```{r}
+x <- mdf %>% filter(LevelAchieved.Original == "Unsatisfactory (<60%)")
+x <- droplevels(x)
+levels(x$RubricId)
+```
+
+Wait. That is supposed to be catched. ...It's a typo "Unsatisactory (<60%)" Okay, that's easy to fix. >> ...Done.
+
+# Side Note
+
+- Fixing the data clean up retrospectively, the effort for maintenance of the existing notes multiply. Let's keep it linear and apply in following notes.
+- The note is getting big and the "Set up" stage needs to be modified rarely. Let's externalize that part and reuse.
