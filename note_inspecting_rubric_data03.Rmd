@@ -146,8 +146,9 @@ mdf$Name <- str_to_title(str_remove(mdf$Name, '^"'))
 pttrn.bus345 <- c("^Final Paper$" = "Ethics Final Paper")
 pttrn.bus499 <-
   c("(^Final Company Paper$)|(^Company Profile$)|(^Final Company Profile$)|(^Course Profile$)" = "Company Profile (Final Paper)",
-     "Simulation After-Action Report \\(Also Submitted To Gen Ed For Evidence Of Problem Solving\\)" = "Goventure Aar",
-    "^Development Plan$" = "Reflection And Development Plan")
+     "Simulation After-Action Report \\(Also Submitted To Gen Ed For Evidence Of Problem Solving\\)" = "Goventure Aar")
+#    "^Development Plan$" = "Reflection And Development Plan")
+# This affects MGT 300 as well.
 pttrn.eco201.a <- c("International Trade Signature Assignment" = "Trade Policy Paper")
 pttrn.eco201.n <- c("^Arguments For Protection$"="Arguments For Protectionism",
                     "^Citations$"="Citations/References",
@@ -164,8 +165,10 @@ pttrn.eco202.n <-
     "^Citations$" = "Writing: Citations",
     "^Grammar$" = "Writing: Grammar",
     "^Structure$" = "Writing: Structure")
+pttrn.mgt300 <- c("^Burt’s Bees (This Is A Re-Submission–I Typed The Course Number Wrong Before)$" = "Burt’s Bees",
+                  "^Burts Bees Case Study$" = "Burt’s Bees")
 
-pttrn.assess <- c(pttrn.bus345, pttrn.bus499, pttrn.eco202.a, pttrn.eco201.a)
+pttrn.assess <- c(pttrn.bus345, pttrn.bus499, pttrn.eco202.a, pttrn.eco201.a, pttrn.mgt300)
 pttrn.name <- c(pttrn.eco202.n, pttrn.eco201.n)
 
 mdf <- mdf %>%
@@ -631,4 +634,33 @@ knitr::kable(tbl)
 
 "GoVenture AAR" and "Reflection and Development" are missing from Mark.
 
+
+### Economics
+The current version shows that ECO 301, 302, and 421 are used. So, none of 201 and 202. What's the role of signature assignments in those?
+
+Rubric rows are not specified in those PLO (3-5) for ECO 421 and hard to guess from PLOs themselves. Ask Ed and Paul.
+
+### Human Resource Management
+Likewise, rubric rows are not specified.
+
+### Management
+BUS 345
+- PLO1: Rubric-graded case study assignment.  >> Which case study?
+- PLO2: Grade on a case study assignment: Engstrom Auto Mirror Plant Analysis: Three week project with five parts >> Engstrom Auto Mirror Plant??
+- PLO3: Rubric-graded individual or group business plan assignment >> Again, which one?
+
+### Marketing
+All are from MKT401
+
+- PLO2: : Individually completed marketing research paper.  ONLINE course. >> Holistic?
+- PLO3: Students used a semester-long case study, involving a team and research-based approach, in which each team identified a social issue, research to justify the choice, crafted a business and marketing plan to assist with or eliminate the social issue using marketing principles to attract donors and volunteers to assist to meet or exceed stated learning outcome >> Moved from MKT 341?
+
+### Non-rubric data?
+Many missing. Mostly missing links. Perhaps I can find some from the non-rubric data.
+
+```{r}
+non <- read_excel("data/Non Rubric Data.xlsx")
+non
+```
+Not much help here, although I need to handle those fields without any rubric data though... ACC and MIS
 
