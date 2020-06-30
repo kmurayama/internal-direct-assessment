@@ -2,10 +2,15 @@
 title: "Note to Inspect Rubric Data 4"
 output:
   html_notebook:
-    toc: true
+    toc: yes
     toc_float:
-      collapsed: false
+      collapsed: no
     theme: paper
+  html_document:
+    toc: yes
+    toc_float:
+      collapsed: no
+    df_print: paged
 ---
 
 # Objective
@@ -198,7 +203,7 @@ lres[["PLO10"]] <- res
 
 ### Trend
 Collect them into a table and merge with the history.
-```{r, eval=FALSE}
+```{r}
 x <- bind_rows(lres)
 x <- x %>% ungroup() %>% 
   transmute(`Academic Year` = rep(2019, nrow(x)),
@@ -212,9 +217,10 @@ y <- past %>%
 out <- bind_rows(x, y)
 head(out)
 ```
+
 ```{r}
 ggplot(out %>% filter(`Learning Objective Number` != 1),
-       aes(`Academic Year`, Outcome, group = `Learning Objective Number`)) + 
+       aes(`Academic Year`, Outcome, group = `Learning Objective Number`)) +
   geom_line(na.rm = TRUE) +
   geom_point(aes(color = Outcome > 0.7), na.rm = TRUE) +
   scale_colour_manual(values = setNames(c('blue','red'),c(T, F))) +
