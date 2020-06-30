@@ -45,6 +45,10 @@ knitr::kable(tbl, digits=2)
 
 ## Business
 
+```{r}
+lres <- list()
+```
+
 ###PLO1
 Both internal/external use Peregrine test
 
@@ -61,8 +65,10 @@ x <- x %>% mutate(w = Name %>%
                     str_extract("\\d{1,2}%") %>% str_extract("\\d{1,2}"))
 res <- x %>% summarize(mean = mean(Met),
                        wmean = weighted.mean(Met, as.numeric(w)),
-                       min_n = min(n), max_n = max(n))
+                       min_n = min(n), max_n = max(n)) %>%
+  mutate(PLO = 2)
 knitr::kable(res, dig=2)
+lres[["PLO2"]] <- res
 ```
 
 ### PLO3 Company profile, rubric graded project.  Rubric rows  PLO3 a, b, c, d, e
@@ -71,7 +77,11 @@ PLO3 are found in Company Profile, but not disaggregated. Some of PLO3 (a,b) are
 x <- tbl %>%
   filter(`Assessment Name`=="Company Profile (Final Paper)",
          Course == "BUS 499", str_detect(Name, "Plo3"))
+res <- x %>% summarize(mean = mean(Met),
+                       min_n = min(n), max_n = max(n)) %>%
+  mutate(PLO = 3)
 knitr::kable(x, dig = 2)
+lres[["PLO3"]] <- res
 ```
 
 ### PLO4 BUS 499 Capstone Simulation, AAR Rows PLO4 a, b
@@ -87,8 +97,10 @@ x <- x %>% mutate(w = Name %>%
                     str_extract("\\d{1,2}%") %>% str_extract("\\d{1,2}"))
 res <- x %>% summarize(mean = mean(Met),
                        wmean = weighted.mean(Met, as.numeric(w)),
-                       min_n = min(n), max_n = max(n))
+                       min_n = min(n), max_n = max(n)) %>%
+  mutate(PLO = 4)
 knitr::kable(res, dig=2)
+lres[["PLO4"]] <- res
 ```
 
 ### PLO5 and 6
@@ -108,14 +120,17 @@ x <- x %>% mutate(w = Name %>%
                     str_extract("\\d{1,2}%") %>% str_extract("\\d{1,2}"))
 res <- x %>%
   mutate(PLO = str_extract(Name, "Plo[1-9]")) %>% 
-  group_by(PLO) %>%
+  group_by(Course, `Assessment Name`, PLO) %>%
   summarize(mean = mean(Met),
                        wmean = weighted.mean(Met, as.numeric(w)),
-                       min_n = min(n), max_n = max(n))
+                       min_n = min(n), max_n = max(n)) %>% 
+  mutate(PLO = c(5, 6))
 knitr::kable(res, dig=2)
+lres[["PLO6"]] <- res[2, ]
+lres[["PLO5"]] <- res[1, ]
 ```
 
-### PLO 7 and 8
+### PLO7 and 8
 - PLO7 Internal: BUS 499 International ethics case. Rubric Rows PLO7 a,b,C  
 - PLO8 Internal: BUS 499 International ethics case, Rubric Rows PLO8 a,b,C
 ```{r}
@@ -129,9 +144,12 @@ No PLO7c? THere's no information about weights.
 x <- x %>% filter(str_detect(Name, "[7|8]d", negate = TRUE))
 res <- x %>%
   mutate(PLO = str_extract(Name, "Plo[1-9]")) %>% 
-  group_by(PLO) %>%
-  summarize(mean = mean(Met), min_n = min(n), max_n = max(n))
+  group_by(Course, `Assessment Name`, PLO) %>%
+  summarize(mean = mean(Met), min_n = min(n), max_n = max(n)) %>% 
+  mutate(PLO = c(7, 8))
 knitr::kable(res, dig=2)
+lres[["PLO8"]] <- res[2, ]
+lres[["PLO7"]] <- res[1, ]
 ```
 
 ### PLO9 Internal: Simulation Peer Feedback #2, total score (BUS 499 Team simulation) Updated: AAR Rubric Rows PLO9a + PLO9b, 90% achieving "usually" or "always"
@@ -149,11 +167,13 @@ x <- x %>% mutate(w = Name %>%
                     str_extract("\\d{1,2}%") %>% str_extract("\\d{1,2}"))
 res <- x %>%
   mutate(PLO = str_extract(Name, "Plo[1-9]")) %>% 
-  group_by(PLO) %>%
+  group_by(Course, `Assessment Name`, PLO) %>%
   summarize(mean = mean(Met),
                        wmean = weighted.mean(Met, as.numeric(w)),
-                       min_n = min(n), max_n = max(n))
+                       min_n = min(n), max_n = max(n)) %>% 
+  mutate(PLO = 9)
 knitr::kable(res, dig=2)
+lres[["PLO9"]] <- res
 ```
 
 ### PLO10 Internal: Final reflection paper. BUS 499 Reflection and Development Plan Rows 1 and 2
@@ -170,6 +190,39 @@ knitr::kable(x, dig = 2)
 x <- x %>% filter(str_detect(Name, "(Challenges)|(Leadership)"))
 res <- x %>%
   mutate(PLO = str_extract(Name, "Plo[1-9]")) %>% 
-  summarize(mean = mean(Met), min_n = min(n), max_n = max(n))
+  summarize(mean = mean(Met), min_n = min(n), max_n = max(n)) %>% 
+  mutate(PLO = 10)
 knitr::kable(res, dig=2)
+lres[["PLO10"]] <- res
+```
+
+### Trend
+Collect them into a table and merge with the history.
+```{r, eval=FALSE}
+x <- bind_rows(lres)
+x <- x %>% ungroup() %>% 
+  transmute(`Academic Year` = rep(2019, nrow(x)),
+                     `Learning Objective Number` = PLO,
+                     `Outcome` = mean,
+                     `Sample Size` = min_n )
+y <- past %>%
+  filter(Program == "Business Core", `Assessment Type` == "Internal",
+         str_detect(Source, "2020")) %>% 
+  select(`Academic Year`, `Learning Objective Number`, Outcome, `Sample Size`)
+out <- bind_rows(x, y)
+head(out)
+```
+```{r}
+ggplot(out %>% filter(`Learning Objective Number` != 1),
+       aes(`Academic Year`, Outcome, group = `Learning Objective Number`)) + 
+  geom_line(na.rm = TRUE) +
+  geom_point(aes(color = Outcome > 0.7), na.rm = TRUE) +
+  scale_colour_manual(values = setNames(c('blue','red'),c(T, F))) +
+  geom_text(aes(`Academic Year`, 0.5, label = round(`Sample Size`, 0)),
+            alpha = 0.4, na.rm = TRUE) +
+  geom_hline(yintercept = 0.7, color = "red") +
+  scale_y_continuous(labels=scales::percent) +
+  facet_wrap(vars(`Learning Objective Number`)) +
+  theme_minimal() +
+  ggtitle("Business Core, Prevalence of Achievments Over Time, by PLO")
 ```
