@@ -16,18 +16,160 @@ Data are mostly cleaned and organized through examining each course. Bring back 
 ```{r, echo=FALSE, include=FALSE}
 #knitr::opts_chunk$set(message = FALSE, warning = FALSE)
 library(tidyverse)
+options(dplyr.summarise.inform=FALSE) 
 library(readxl)
 ```
 
 ```{r}
 source('read.R')
-```
-
-```{r}
 source('munge.R')
-```
-
-```{r}
 summary(mdf)
 ```
 
+```{r}
+past <- read_excel("data/Assessment Data Main.xlsx")
+summary(past)
+```
+
+
+# PLO Measures for Standard 4
+
+```{r}
+# Undergrad focus for now
+tbl <- mdf %>% filter(str_detect(Name, "Major|Minor", negate = TRUE)) %>%
+  group_by(Course, `Assessment Name`, Name) %>%
+  summarise(Met = mean(Met.UND.bin), n = n())
+#  summarise(across(ends_with(".bin"), mean, na.rm = TRUE), n = n())
+knitr::kable(tbl, digits=2)
+```
+
+## Business
+
+###PLO1
+Both internal/external use Peregrine test
+
+### PLO2 Annotated bibliography (rubric--milestone in company profile)
+```{r}
+x <- tbl %>%
+  filter(`Assessment Name`=="Annotated Bibliography",
+         Course == "BUS 499", str_detect(Name, "Plo2"))
+knitr::kable(x, dig = 2)
+```
+It's unclear how to handle rows. Below, I calculate simple/weighted means of spreads of achievements.
+```{r}
+x <- x %>% mutate(w = Name %>%
+                    str_extract("\\d{1,2}%") %>% str_extract("\\d{1,2}"))
+res <- x %>% summarize(mean = mean(Met),
+                       wmean = weighted.mean(Met, as.numeric(w)),
+                       min_n = min(n), max_n = max(n))
+knitr::kable(res, dig=2)
+```
+
+### PLO3 Company profile, rubric graded project.  Rubric rows  PLO3 a, b, c, d, e
+PLO3 are found in Company Profile, but not disaggregated. Some of PLO3 (a,b) are in GoVenture AAR. Here, only Comapny Profile is used.
+```{r}
+x <- tbl %>%
+  filter(`Assessment Name`=="Company Profile (Final Paper)",
+         Course == "BUS 499", str_detect(Name, "Plo3"))
+knitr::kable(x, dig = 2)
+```
+
+### PLO4 BUS 499 Capstone Simulation, AAR Rows PLO4 a, b
+```{r}
+x <- tbl %>%
+  filter(`Assessment Name`=="Goventure Aar",
+         Course == "BUS 499", str_detect(Name, "Plo4"))
+knitr::kable(x, dig = 2)
+```
+PLO4 can be found in Company Profile as well. Here, ignore it and only use AAR.
+```{r}
+x <- x %>% mutate(w = Name %>%
+                    str_extract("\\d{1,2}%") %>% str_extract("\\d{1,2}"))
+res <- x %>% summarize(mean = mean(Met),
+                       wmean = weighted.mean(Met, as.numeric(w)),
+                       min_n = min(n), max_n = max(n))
+knitr::kable(res, dig=2)
+```
+
+### PLO5 and 6
+- PLO5 BUS 499 Company profile project, Rubric rows PLO2 a, b, c, d 
+- PLO6 BUS 499 Company profile Rows PLO2 e, f, g
+
+```{r}
+x <- tbl %>%
+  filter(`Assessment Name`=="Company Profile (Final Paper)",
+         Course == "BUS 499", str_detect(Name, "Plo[5-6]"))
+knitr::kable(x, dig = 2)
+```
+Select the specified rows. ...6f and 6g missing?
+```{r}
+x <- x %>% filter(str_detect(Name, "(5[a|b|c|d])|(6[e|f|g])"))
+x <- x %>% mutate(w = Name %>%
+                    str_extract("\\d{1,2}%") %>% str_extract("\\d{1,2}"))
+res <- x %>%
+  mutate(PLO = str_extract(Name, "Plo[1-9]")) %>% 
+  group_by(PLO) %>%
+  summarize(mean = mean(Met),
+                       wmean = weighted.mean(Met, as.numeric(w)),
+                       min_n = min(n), max_n = max(n))
+knitr::kable(res, dig=2)
+```
+
+### PLO 7 and 8
+- PLO7 Internal: BUS 499 International ethics case. Rubric Rows PLO7 a,b,C  
+- PLO8 Internal: BUS 499 International ethics case, Rubric Rows PLO8 a,b,C
+```{r}
+x <- tbl %>%
+  filter(`Assessment Name`=="Ethics Case Paper",
+         Course == "BUS 499", str_detect(Name, "Plo[7-8]"))
+knitr::kable(x, dig = 2)
+```
+No PLO7c? THere's no information about weights.
+```{r}
+x <- x %>% filter(str_detect(Name, "[7|8]d", negate = TRUE))
+res <- x %>%
+  mutate(PLO = str_extract(Name, "Plo[1-9]")) %>% 
+  group_by(PLO) %>%
+  summarize(mean = mean(Met), min_n = min(n), max_n = max(n))
+knitr::kable(res, dig=2)
+```
+
+### PLO9 Internal: Simulation Peer Feedback #2, total score (BUS 499 Team simulation) Updated: AAR Rubric Rows PLO9a + PLO9b, 90% achieving "usually" or "always"
+
+```{r}
+x <- tbl %>%
+  filter(`Assessment Name`=="Goventure Aar",
+         Course == "BUS 499", str_detect(Name, "Plo9"))
+#mdf %>%  filter(`Assessment Name`=="Goventure Aar")
+knitr::kable(x, dig = 2)
+```
+Achievement levels for those are standard (Good, Rudimentary, etc.)?
+```{r}
+x <- x %>% mutate(w = Name %>%
+                    str_extract("\\d{1,2}%") %>% str_extract("\\d{1,2}"))
+res <- x %>%
+  mutate(PLO = str_extract(Name, "Plo[1-9]")) %>% 
+  group_by(PLO) %>%
+  summarize(mean = mean(Met),
+                       wmean = weighted.mean(Met, as.numeric(w)),
+                       min_n = min(n), max_n = max(n))
+knitr::kable(res, dig=2)
+```
+
+### PLO10 Internal: Final reflection paper. BUS 499 Reflection and Development Plan Rows 1 and 2
+
+This one doesn't have markers. Pick "Challenges" and "Leadership Skills".
+```{r}
+x <- tbl %>%
+  filter(`Assessment Name`=="Development Plan",
+         Course == "BUS 499")
+knitr::kable(x, dig = 2)
+```
+
+```{r}
+x <- x %>% filter(str_detect(Name, "(Challenges)|(Leadership)"))
+res <- x %>%
+  mutate(PLO = str_extract(Name, "Plo[1-9]")) %>% 
+  summarize(mean = mean(Met), min_n = min(n), max_n = max(n))
+knitr::kable(res, dig=2)
+```
