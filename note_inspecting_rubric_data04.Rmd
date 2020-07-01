@@ -2,18 +2,17 @@
 title: "Note to Inspect Rubric Data 4"
 date: 6/30/2020
 output:
+  html_notebook:
+    toc: yes
+    toc_float:
+      collapsed: no
+    code_folding: hide
   html_document:
     toc: yes
     toc_float:
       collapsed: no
     df_print: paged
     code_folding: hide
-  html_notebook:
-    toc: yes
-    toc_float:
-      collapsed: no
-    code_folding: hide
-    theme: paper
 ---
 
 ```{r, echo=FALSE, include=FALSE}
@@ -37,6 +36,16 @@ In addition, import the past assessment data (`past`) and the non-rubric assessm
 ```{r}
 past <- read_excel("data/Assessment Data Main.xlsx")
 non <- read_excel("data/Non Rubric Data.xlsx")
+non <- non %>% transmute(
+  Instructor = Name,
+  Semester = `In which semester is this course?`,
+  Course = paste(Program, Course, Section),
+  `Assessment Name` = `What is the name of the assessment you used? (e.g., International Trade Case Study, Final Exam Question 3, etc.)`,
+  `Program`, `PLO Mixed`=PLO,
+  n = `What is the total number of students that completed the assessment tool for your second learning objective?`,
+  pass_n = `If this is an undergraduate assessment, how many students achieved a rubric level of "basic" or scored 70% or better on the assessment?  If this is an MBA formative assessment, how many students s...`,
+  Interpretation = `Analysis/Interpretation of Results for your learning objective: Briefly answer the question, What do your assessment data tell us?`,
+  Action = `Action for improvement: Briefly explain how you will use the assessment results to make improvements to your course or curriculum.2`)
 ```
 
 # PLO Measures for Standard 4
@@ -56,6 +65,10 @@ knitr::kable(tbl, digits=2,
                            "Criterion (Rubric Row)",
                            "Achieved (share)", "Sample Size (n)"))
 ```
+```{r}
+knitr::kable(non)
+```
+
 
 ## Business
 ```{r}
@@ -264,6 +277,19 @@ ggplot(out %>% filter(`Learning Objective Number` != 1),
 ToDo: PLO 9 has a different threshold (0.9). Address that.
 
 ## Economics
+
+### PLO1
+ECO 301 missing? Not even in the request.
+
+### PLO2
+ECO 302 for spring 2020. Information is provided in the form of non-rubric assessment.
+```{r}
+x <- non %>% filter(str_detect(Course, "ECO 302")) %>% 
+  mutate(Met = pass_n/n)
+knitr::kable(x %>% select(`Assessment Name`, "Met", n), dig=2)
+```
+
+### PLO3-5
 Rubric rows are not specified in those PLO (3-5) for ECO 421 and hard to guess from PLOs themselves. Ask Ed and Paul.
 ```{r}
 x <- tbl %>% filter(Course == "ECO 421") %>% ungroup() %>% 
@@ -280,19 +306,48 @@ knitr::kable(x, dig=2)
 ```
 
 ## Management
-BUS 345
-- PLO1: Rubric-graded case study assignment.  >> Which case study?
-- PLO2: Grade on a case study assignment: Engstrom Auto Mirror Plant Analysis: Three week project with five parts >> Engstrom Auto Mirror Plant??
-- PLO3: Rubric-graded individual or group business plan assignment >> Again, which one?
+First sheet has a set of new PLOs:
 
-Annotated Bibliography and Ethics Final Paper are recorded. The latter is tagge with PLO# though.
-
-MGT 300 is more aligned?
+### PLO1
+Summative (collected as a single assessment score from the simulation this cycle. Next cycle, will be a two-row rubric in D2L). Alternative assessment for this cycle: PLO1/CLO1 in final paper rubric
 ```{r}
-x <- tbl %>% filter(Course == "BUS 345") %>% ungroup() %>% 
-  select(`Assessment Name`, Name, Met, n)
-knitr::kable(x, dig=2)
+x <- tbl %>%
+  filter(`Assessment Name`=="Ethics Final Paper",
+         Course == "BUS 345", str_detect(Name, "Plo1"))
+knitr::kable(x, dig = 2)
 ```
+
+### PLO2
+Summative (collected as a single assessment score from the simulation this cycle. Next cycle, will be a two-row rubric in D2L) Alternative assessment for this cycle: PLO5a, b, c, d (all CLO2) in final paper rubric
+
+```{r}
+x <- tbl %>%
+  filter(`Assessment Name`=="Ethics Final Paper",
+         Course == "BUS 345", str_detect(Name, "Plo2"))
+knitr::kable(x, dig = 2)
+```
+
+
+### PLO3
+Summative Rows PLO7a, b, c (all CLO3) in final paper rubric
+```{r}
+x <- tbl %>%
+  filter(`Assessment Name`=="Ethics Final Paper",
+         Course == "BUS 345", str_detect(Name, "Plo7"))
+knitr::kable(x, dig = 2)
+```
+
+### PLO4
+Summative Use overall rubric total from reflection and development plan
+
+"Ethics Reflection"? Name altered earlier?
+```{r}
+x <- tbl %>%
+  filter(`Assessment Name`=="Ethics Reflection",
+         Course == "BUS 345")
+knitr::kable(x, dig = 2)
+```
+
 
 ## Marketing
 All are from MKT401
