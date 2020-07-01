@@ -1,11 +1,18 @@
 ---
 title: "Note to Inspect Rubric Data 3"
 output:
+  html_document:
+    toc: yes
+    toc_float:
+      collapsed: no
+    df_print: paged
+    code_folding: hide
   html_notebook:
     toc: true
     toc_float:
       collapsed: false
     theme: paper
+date: 6/29/2020
 ---
 
 
