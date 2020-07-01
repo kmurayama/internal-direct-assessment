@@ -66,7 +66,59 @@ knitr::kable(tbl, digits=2,
                            "Achieved (share)", "Sample Size (n)"))
 ```
 ```{r}
-knitr::kable(non)
+non %>% arrange(Course)
+#knitr::kable(non %>% arrange(Course))
+```
+
+## Accounting
+### PLO1
+Prepare consolidated financial statements in accordance with current accounting principles generally accepted in the United States of America, and learn how each statement is used for business decision making.
+
+ACC331
+
+Exam question.  Students will be required to prepare GAAP based financial statements and non-GAAP financial statements and assess the impacts of GAAP compliance.
+```{r}
+x <- non %>% filter(str_detect(Course, "ACC 331"),
+                    str_detect(`PLO Mixed`, "LO 1")) %>% 
+  mutate(Met = pass_n/n)
+knitr::kable(x %>% select(`Assessment Name`, "Met", n), dig=2)
+```
+
+
+### PLO2
+Compare the impact of alternative costing methods.
+
+ACC331
+
+Exam question.  Students will calculate the cost of produced goods using alternative costing systems and assess the implications of costing system applied.
+```{r}
+x <- non %>% filter(str_detect(Course, "ACC 331"),
+                    str_detect(`PLO Mixed`, "LO 2")) %>% 
+  mutate(Met = pass_n/n)
+knitr::kable(x %>% select(`Assessment Name`, "Met", n), dig=2)
+```
+
+### PLO3
+Apply Federal tax law and regulations in the determination of tax liability.
+
+ACC318
+
+Students complete a tax return on their final exam from start to finish, and calculate their tax liability using the appropriate forms and formulas.
+
+No ACC318? >> Logan Howard. Ed following up.
+
+### PLO4
+Conduct audit tests and document the test and conclusions.
+
+ACC441
+
+Students will conduct audit tests and document and explain them.
+
+GW1 Christopher Lyons. Ed following up.
+```{r}
+x <- non %>% filter(str_detect(Course, "ACC 441")) %>% 
+  mutate(Met = pass_n/n)
+knitr::kable(x %>% select(`Assessment Name`, "Met", n), dig=2)
 ```
 
 
@@ -297,13 +349,31 @@ x <- tbl %>% filter(Course == "ECO 421") %>% ungroup() %>%
 knitr::kable(x, dig=2)
 ```
 
+## Finance
+Both are from FIN 302. Only rubric assessments from Chris?
+
+### PLO1
+Identify and differentiate financial concepts, theories, and/or methods that are used in making specific business decisions.
+
+### PLO2
+Use qualitative and quantitative methods to examine the worthiness of a common business issue.
+
 ## Human Resource Management
 Likewise, rubric rows are not specified.
+
 ```{r}
-x <- tbl %>% filter(Course == "HRM 400") %>% ungroup() %>% 
+x <-tbl %>% filter(Course == "HRM 400") %>% ungroup() %>% 
   select(`Assessment Name`, Name, Met, n)
 knitr::kable(x, dig=2)
 ```
+
+Also, non-rubric assessments are included.
+```{r}
+x <- non %>% filter(str_detect(Course, "HRM 400")) %>% 
+  mutate(Met = pass_n/n)
+knitr::kable(x %>% select(`Assessment Name`, "Met", n), dig=2)
+```
+
 
 ## Management
 First sheet has a set of new PLOs:
@@ -350,13 +420,114 @@ knitr::kable(x, dig = 2)
 
 
 ## Marketing
-All are from MKT401
+All are from MKT401, where rubrics are used.
 
-- PLO2: : Individually completed marketing research paper.  ONLINE course. >> Holistic?
-- PLO3: Students used a semester-long case study, involving a team and research-based approach, in which each team identified a social issue, research to justify the choice, crafted a business and marketing plan to assist with or eliminate the social issue using marketing principles to attract donors and volunteers to assist to meet or exceed stated learning outcome >> Moved from MKT 341?
+"Goal 1 is not part of the current internal assessment cycle"? That includes PLO2?
+
+Also, first sheet contains the new PLOs.
+
+MKT PLO1-3 marked with Eric Freeman.
 
 ```{r}
 x <- tbl %>% filter(Course == "MKT 401") %>% ungroup() %>% 
   select(`Assessment Name`, Name, Met, n)
 knitr::kable(x, dig=2)
 ```
+
+### PLO2
+Effectively communicate marketing decisions and processes
+
+### PLO3
+Interpret data to support ethical marketing decisions across constituencies
+
+
+
+## MBA
+~~First sheet is not updated.~~ Check last sheet.
+
+### PLO1
+Demonstrate ability to solve problems using the tools of accounting
+
+Score on the final exam in ACC 711
+```{r}
+x <- non %>% filter(str_detect(Course, "ACC 711")) %>% 
+  mutate(Met = pass_n/n)
+knitr::kable(x %>% select(`Assessment Name`, "Met", n), dig=2)
+```
+
+### PLO2
+Demonstrate ability to solve problems using the tools of economics
+
+Score on the final exam in ECO 716
+```{r}
+x <- non %>% filter(str_detect(Course, "ECO 716")) %>% 
+  mutate(Met = pass_n/n)
+knitr::kable(x %>% select(`Assessment Name`, "Met", n), dig=2)
+```
+
+### PLO3
+Demonstrate ability to solve problems using the tools of finance
+
+Score on the final exam in FIN 711
+```{r}
+x <- non %>% filter(str_detect(Course, "FIN 711")) %>% 
+  mutate(Met = pass_n/n)
+knitr::kable(x %>% select(`Assessment Name`, "Met", n), dig=2)
+```
+
+### PLO4
+Demonstrate ability to solve problems using the tools of human resource management
+
+Score on the final exam in HRM 711
+```{r}
+x <- non %>% filter(str_detect(Course, "HRM 711")) %>% 
+  mutate(Met = pass_n/n)
+knitr::kable(x %>% select(`Assessment Name`, "Met", n), dig=2)
+```
+
+### PLO5
+Demonstrate ability to solve problems using the tools of international business
+
+Score on the final exam in MKT 741
+
+Not found in requests. MBA LO5 is missing in requests.
+
+### PLO6
+Demonstrate ability to solve problems using the tools of marketing
+
+Score on the final exam in MKT 711
+```{r}
+x <- non %>% filter(str_detect(Course, "MKT 711")) %>% 
+  mutate(Met = pass_n/n)
+knitr::kable(x %>% select(`Assessment Name`, "Met", n), dig=2)
+```
+
+### PLO7
+Demonstrate ability to solve problems using the tools of strategic management
+
+Score on the final exam in MGT 799
+
+Not found in requests. BUS 799 marked as "MBA LO7". Taught by Paul Redden.
+
+### PLO8
+Employ mathematical and statistical techniques in business decision-making
+
+Score on the final exam in BUS 771
+
+```{r}
+tbl %>% filter(Course == "BUS 771")
+```
+
+
+
+## MIS
+MIS 401 (MGT 373)
+
+Not requested? Use just exams?
+
+### PLO1
+Evaluate how database management software helps business professionals and supports the operations and management of a business.
+
+### PLO2
+Evaluate the role of planning and business models in the development of business/IT strategies, architectures, and applications.
+
