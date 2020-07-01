@@ -5,12 +5,14 @@ output:
     toc: yes
     toc_float:
       collapsed: no
+    code_folding: hide
     theme: paper
   html_document:
     toc: yes
     toc_float:
       collapsed: no
     df_print: paged
+    code_folding: hide
 ---
 
 # Objective
@@ -33,7 +35,7 @@ summary(mdf)
 
 ```{r}
 past <- read_excel("data/Assessment Data Main.xlsx")
-summary(past)
+non <- read_excel("data/Non Rubric Data.xlsx")
 ```
 
 
@@ -54,10 +56,11 @@ knitr::kable(tbl, digits=2)
 lres <- list()
 ```
 
-###PLO1
+### PLO1
 Both internal/external use Peregrine test
 
-### PLO2 Annotated bibliography (rubric--milestone in company profile)
+### PLO2
+Annotated bibliography (rubric--milestone in company profile)
 ```{r}
 x <- tbl %>%
   filter(`Assessment Name`=="Annotated Bibliography",
@@ -76,7 +79,9 @@ knitr::kable(res, dig=2)
 lres[["PLO2"]] <- res
 ```
 
-### PLO3 Company profile, rubric graded project.  Rubric rows  PLO3 a, b, c, d, e
+### PLO3
+Company profile, rubric graded project.  Rubric rows  PLO3 a, b, c, d, e
+
 PLO3 are found in Company Profile, but not disaggregated. Some of PLO3 (a,b) are in GoVenture AAR. Here, only Comapny Profile is used.
 ```{r}
 x <- tbl %>%
@@ -89,7 +94,8 @@ knitr::kable(x, dig = 2)
 lres[["PLO3"]] <- res
 ```
 
-### PLO4 BUS 499 Capstone Simulation, AAR Rows PLO4 a, b
+### PLO4
+BUS 499 Capstone Simulation, AAR Rows PLO4 a, b
 ```{r}
 x <- tbl %>%
   filter(`Assessment Name`=="Goventure Aar",
@@ -157,7 +163,8 @@ lres[["PLO8"]] <- res[2, ]
 lres[["PLO7"]] <- res[1, ]
 ```
 
-### PLO9 Internal: Simulation Peer Feedback #2, total score (BUS 499 Team simulation) Updated: AAR Rubric Rows PLO9a + PLO9b, 90% achieving "usually" or "always"
+### PLO9 
+Simulation Peer Feedback #2, total score (BUS 499 Team simulation) Updated: AAR Rubric Rows PLO9a + PLO9b, 90% achieving "usually" or "always"
 
 ```{r}
 x <- tbl %>%
@@ -181,7 +188,8 @@ knitr::kable(res, dig=2)
 lres[["PLO9"]] <- res
 ```
 
-### PLO10 Internal: Final reflection paper. BUS 499 Reflection and Development Plan Rows 1 and 2
+### PLO10
+Internal: Final reflection paper. BUS 499 Reflection and Development Plan Rows 1 and 2
 
 This one doesn't have markers. Pick "Challenges" and "Leadership Skills".
 ```{r}
@@ -232,3 +240,22 @@ ggplot(out %>% filter(`Learning Objective Number` != 1),
   theme_minimal() +
   ggtitle("Business Core, Prevalence of Achievments Over Time, by PLO")
 ```
+
+
+## Economics
+Rubric rows are not specified in those PLO (3-5) for ECO 421 and hard to guess from PLOs themselves. Ask Ed and Paul.
+
+## Human Resource Management
+Likewise, rubric rows are not specified.
+
+## Management
+BUS 345
+- PLO1: Rubric-graded case study assignment.  >> Which case study?
+- PLO2: Grade on a case study assignment: Engstrom Auto Mirror Plant Analysis: Three week project with five parts >> Engstrom Auto Mirror Plant??
+- PLO3: Rubric-graded individual or group business plan assignment >> Again, which one?
+
+## Marketing
+All are from MKT401
+
+- PLO2: : Individually completed marketing research paper.  ONLINE course. >> Holistic?
+- PLO3: Students used a semester-long case study, involving a team and research-based approach, in which each team identified a social issue, research to justify the choice, crafted a business and marketing plan to assist with or eliminate the social issue using marketing principles to attract donors and volunteers to assist to meet or exceed stated learning outcome >> Moved from MKT 341?
