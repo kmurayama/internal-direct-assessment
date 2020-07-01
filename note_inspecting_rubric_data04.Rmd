@@ -1,24 +1,20 @@
 ---
 title: "Note to Inspect Rubric Data 4"
+date: 6/30/2020
 output:
-  html_notebook:
-    toc: yes
-    toc_float:
-      collapsed: no
-    code_folding: hide
-    theme: paper
   html_document:
     toc: yes
     toc_float:
       collapsed: no
     df_print: paged
     code_folding: hide
+  html_notebook:
+    toc: yes
+    toc_float:
+      collapsed: no
+    code_folding: hide
+    theme: paper
 ---
-
-# Objective
-Data are mostly cleaned and organized through examining each course. Bring back those procedures into the data munging stage and produce the base statistics for Standard 4.
-
-# Set up
 
 ```{r, echo=FALSE, include=FALSE}
 #knitr::opts_chunk$set(message = FALSE, warning = FALSE)
@@ -27,37 +23,48 @@ options(dplyr.summarise.inform=FALSE)
 library(readxl)
 ```
 
+# Objective
+Data are mostly cleaned and organized through examining each course. Bring back those procedures into the data munging stage and produce the base statistics for Standard 4.
+
+# Set up
+Import data. Codes are externalized for reuse. As a reference: `mdf` or main data frame contains the rubric outcome data merged with the course/assessment information gathered from the survey. Data are mostly cleaned up.
 ```{r}
 source('read.R')
 source('munge.R')
-summary(mdf)
 ```
 
+In addition, import the past assessment data (`past`) and the non-rubric assessments provided from the faculty (`non`).
 ```{r}
 past <- read_excel("data/Assessment Data Main.xlsx")
 non <- read_excel("data/Non Rubric Data.xlsx")
 ```
 
-
 # PLO Measures for Standard 4
+We first need simple statistics for the given set of assessment tools. See the `2. Assessment Plan` folder in SharePoint for the latest mappings.
 
+Here is a full list of the rubric outcomes at the rubric-row level disaggregation. Note that most of them are not used for the reporting, but for internal use (detailed analysis and *closing the loop*, or *Standard 6*). The table is organized by `Course` and `Assessment Name`.
+
+The table is comprehensive and long. Skip to the next section ([Business]) if you do not need a particular piece of information.
 ```{r}
 # Undergrad focus for now
 tbl <- mdf %>% filter(str_detect(Name, "Major|Minor", negate = TRUE)) %>%
   group_by(Course, `Assessment Name`, Name) %>%
   summarise(Met = mean(Met.UND.bin), n = n())
 #  summarise(across(ends_with(".bin"), mean, na.rm = TRUE), n = n())
-knitr::kable(tbl, digits=2)
+knitr::kable(tbl, digits=2,
+             col.names = c("Course", "Assessment Name",
+                           "Criterion (Rubric Row)",
+                           "Achieved (share)", "Sample Size (n)"))
 ```
 
 ## Business
-
 ```{r}
 lres <- list()
 ```
+Most PLOs are explicitly stated in the rubric rows. With some consultation with Beth, most of the outcomes are identified with PLOs.
 
 ### PLO1
-Both internal/external use Peregrine test
+Both internal/external use Peregrine test. Retrieve information from the data and/or from Ahmet's analysis.
 
 ### PLO2
 Annotated bibliography (rubric--milestone in company profile)
@@ -67,6 +74,7 @@ x <- tbl %>%
          Course == "BUS 499", str_detect(Name, "Plo2"))
 knitr::kable(x, dig = 2)
 ```
+
 It's unclear how to handle rows. Below, I calculate simple/weighted means of spreads of achievements.
 ```{r}
 x <- x %>% mutate(w = Name %>%
@@ -102,6 +110,7 @@ x <- tbl %>%
          Course == "BUS 499", str_detect(Name, "Plo4"))
 knitr::kable(x, dig = 2)
 ```
+
 PLO4 can be found in Company Profile as well. Here, ignore it and only use AAR.
 ```{r}
 x <- x %>% mutate(w = Name %>%
@@ -124,6 +133,7 @@ x <- tbl %>%
          Course == "BUS 499", str_detect(Name, "Plo[5-6]"))
 knitr::kable(x, dig = 2)
 ```
+
 Select the specified rows. ...6f and 6g missing?
 ```{r}
 x <- x %>% filter(str_detect(Name, "(5[a|b|c|d])|(6[e|f|g])"))
@@ -142,6 +152,7 @@ lres[["PLO5"]] <- res[1, ]
 ```
 
 ### PLO7 and 8
+
 - PLO7 Internal: BUS 499 International ethics case. Rubric Rows PLO7 a,b,C  
 - PLO8 Internal: BUS 499 International ethics case, Rubric Rows PLO8 a,b,C
 ```{r}
@@ -150,6 +161,7 @@ x <- tbl %>%
          Course == "BUS 499", str_detect(Name, "Plo[7-8]"))
 knitr::kable(x, dig = 2)
 ```
+
 No PLO7c? THere's no information about weights.
 ```{r}
 x <- x %>% filter(str_detect(Name, "[7|8]d", negate = TRUE))
@@ -173,6 +185,7 @@ x <- tbl %>%
 #mdf %>%  filter(`Assessment Name`=="Goventure Aar")
 knitr::kable(x, dig = 2)
 ```
+
 Achievement levels for those are standard (Good, Rudimentary, etc.)?
 ```{r}
 x <- x %>% mutate(w = Name %>%
@@ -223,10 +236,13 @@ y <- past %>%
          str_detect(Source, "2020")) %>% 
   select(`Academic Year`, `Learning Objective Number`, Outcome, `Sample Size`)
 out <- bind_rows(x, y)
-head(out)
+knitr::kable(out %>% filter(`Academic Year`==2019), dig=2)
 ```
 
 ```{r}
+title <- "Business Core, Prevalence of Achievments Over Academic Years, by PLO"
+subtitle <- "All the PLOs meet the goal of 70%. While some show a good improvement from the previous\nyear (PLO3 and 4), others worsened (PLO6, 7, and 8)."
+caption <- "Grey number represents sample size.\nFor 2019, minimum sample size is used if prevalence is computed from multiple criteria."
 ggplot(out %>% filter(`Learning Objective Number` != 1),
        aes(`Academic Year`, Outcome, group = `Learning Objective Number`)) +
   geom_line(na.rm = TRUE) +
@@ -238,15 +254,30 @@ ggplot(out %>% filter(`Learning Objective Number` != 1),
   scale_y_continuous(labels=scales::percent) +
   facet_wrap(vars(`Learning Objective Number`)) +
   theme_minimal() +
-  ggtitle("Business Core, Prevalence of Achievments Over Time, by PLO")
+  labs(title = title, subtitle = subtitle, caption = caption) +
+  theme(axis.title = element_blank(),
+        text = element_text(family = "serif"),
+        panel.grid.minor.x = element_blank(),
+        legend.position = "none")
 ```
 
+ToDo: PLO 9 has a different threshold (0.9). Address that.
 
 ## Economics
 Rubric rows are not specified in those PLO (3-5) for ECO 421 and hard to guess from PLOs themselves. Ask Ed and Paul.
+```{r}
+x <- tbl %>% filter(Course == "ECO 421") %>% ungroup() %>% 
+  select(Name, Met, n)
+knitr::kable(x, dig=2)
+```
 
 ## Human Resource Management
 Likewise, rubric rows are not specified.
+```{r}
+x <- tbl %>% filter(Course == "HRM 400") %>% ungroup() %>% 
+  select(`Assessment Name`, Name, Met, n)
+knitr::kable(x, dig=2)
+```
 
 ## Management
 BUS 345
@@ -254,8 +285,23 @@ BUS 345
 - PLO2: Grade on a case study assignment: Engstrom Auto Mirror Plant Analysis: Three week project with five parts >> Engstrom Auto Mirror Plant??
 - PLO3: Rubric-graded individual or group business plan assignment >> Again, which one?
 
+Annotated Bibliography and Ethics Final Paper are recorded. The latter is tagge with PLO# though.
+
+MGT 300 is more aligned?
+```{r}
+x <- tbl %>% filter(Course == "BUS 345") %>% ungroup() %>% 
+  select(`Assessment Name`, Name, Met, n)
+knitr::kable(x, dig=2)
+```
+
 ## Marketing
 All are from MKT401
 
 - PLO2: : Individually completed marketing research paper.  ONLINE course. >> Holistic?
 - PLO3: Students used a semester-long case study, involving a team and research-based approach, in which each team identified a social issue, research to justify the choice, crafted a business and marketing plan to assist with or eliminate the social issue using marketing principles to attract donors and volunteers to assist to meet or exceed stated learning outcome >> Moved from MKT 341?
+
+```{r}
+x <- tbl %>% filter(Course == "MKT 401") %>% ungroup() %>% 
+  select(`Assessment Name`, Name, Met, n)
+knitr::kable(x, dig=2)
+```
