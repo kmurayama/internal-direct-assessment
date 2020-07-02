@@ -393,12 +393,12 @@ lres[["PLO2"]] <- x
 Rubric rows are not specified in those PLO (3-5) for ECO 421 and hard to guess from PLOs themselves. Ask Ed and Paul.
 ```{r}
 x <- tbl %>% filter(Course == "ECO 421") %>% ungroup() %>% 
-  select(Name, Met, n)
+  select(`Assessment Name`, Name, Met, n)
 knitr::kable(x, dig=2)
 ```
 
 ## Finance
-Both are from FIN 302. Only rubric assessments from Chris?
+Both are from FIN 302. Request is to Chirs only.
 
 ### PLO1
 Identify and differentiate financial concepts, theories, and/or methods that are used in making specific business decisions.
@@ -413,6 +413,12 @@ x <-tbl %>% filter(Course == "HRM 400") %>% ungroup() %>%
   select(`Assessment Name`, Name, Met, n)
 knitr::kable(x, dig=2)
 ```
+By inspecting citeria, I can guess each assignment corresponds to PLO1-3, but not entirely sure.
+
+```{r}
+res %>% filter(Course == "HRM 400") %>% select(`Action for Improvement`)
+```
+
 
 ### PLO1
 Choose effective HR strategies that incorporate human and organizational dynamics while leveraging available HR technologies.
@@ -482,6 +488,7 @@ Summative Use overall rubric total from reflection and development plan
 
 "Ethics Reflection"? Name altered earlier?
 ```{r}
+tbl %>% filter(Course == "BUS 345")
 x <- tbl %>%
   filter(`Assessment Name`=="Ethics Reflection",
          Course == "BUS 345")
@@ -608,7 +615,7 @@ Demonstrate ability to solve problems using the tools of international business
 
 Score on the final exam in MKT 741
 
-Not found in requests. MBA LO5 is missing in requests.
+Not found in requests. MBA LO5 is missing in requests. Eric Freeman (as in Marketing requests)
 
 ### PLO6
 Demonstrate ability to solve problems using the tools of marketing
