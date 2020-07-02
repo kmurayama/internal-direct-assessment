@@ -5,7 +5,7 @@ output:
   html_notebook:
     toc: yes
     toc_float:
-      collapsed: no
+      collapsed: yes
     code_folding: hide
   html_document:
     toc: yes
@@ -71,6 +71,10 @@ non %>% arrange(Course)
 ```
 
 ## Accounting
+```{r}
+lres <- list()
+```
+
 ### PLO1
 Prepare consolidated financial statements in accordance with current accounting principles generally accepted in the United States of America, and learn how each statement is used for business decision making.
 
@@ -80,8 +84,9 @@ Exam question.  Students will be required to prepare GAAP based financial statem
 ```{r}
 x <- non %>% filter(str_detect(Course, "ACC 331"),
                     str_detect(`PLO Mixed`, "LO 1")) %>% 
-  mutate(Met = pass_n/n)
-knitr::kable(x %>% select(`Assessment Name`, "Met", n), dig=2)
+  mutate(PLO = str_extract(`PLO Mixed`, "\\d"), Met = pass_n/n)
+knitr::kable(x %>% select(PLO, `Assessment Name`, "Met", n), dig=2)
+lres[["PLO1"]] <- x
 ```
 
 
@@ -94,8 +99,9 @@ Exam question.  Students will calculate the cost of produced goods using alterna
 ```{r}
 x <- non %>% filter(str_detect(Course, "ACC 331"),
                     str_detect(`PLO Mixed`, "LO 2")) %>% 
-  mutate(Met = pass_n/n)
+  mutate(PLO = str_extract(`PLO Mixed`, "\\d"), Met = pass_n/n)
 knitr::kable(x %>% select(`Assessment Name`, "Met", n), dig=2)
+lres[["PLO2"]] <- x
 ```
 
 ### PLO3
@@ -117,8 +123,46 @@ Students will conduct audit tests and document and explain them.
 GW1 Christopher Lyons. Ed following up.
 ```{r}
 x <- non %>% filter(str_detect(Course, "ACC 441")) %>% 
-  mutate(Met = pass_n/n)
+  mutate(PLO = str_extract(`PLO Mixed`, "\\d"), Met = pass_n/n)
 knitr::kable(x %>% select(`Assessment Name`, "Met", n), dig=2)
+lres[["PLO4"]] <- x
+```
+
+### Trend
+Collect them into a table and merge with the history.
+```{r}
+x <- bind_rows(lres)
+x <- x %>% ungroup() %>% 
+  transmute(`Academic Year` = rep(2019, nrow(x)),
+            `Learning Objective Number` = as.numeric(PLO),
+            `Outcome` = Met, `Sample Size` = n )
+y <- past %>%
+  filter(Program == "Accounting", `Assessment Type` == "Internal",
+         str_detect(Source, "2020")) %>% 
+  select(`Academic Year`, `Learning Objective Number`, Outcome, `Sample Size`)
+out <- bind_rows(x, y)
+knitr::kable(out %>% filter(`Academic Year`==2019), dig=2)
+```
+
+```{r}
+title <- "Accounting, Prevalence of Achievments Over Academic Years, by PLO"
+caption <- "Grey number represents sample size.\nFor 2019, minimum sample size is used if prevalence is computed from multiple criteria."
+ggplot(out,
+       aes(`Academic Year`, Outcome, group = `Learning Objective Number`)) +
+  geom_line(na.rm = TRUE) +
+  geom_point(aes(color = Outcome > 0.7), na.rm = TRUE) +
+  scale_colour_manual(values = setNames(c('blue','red'),c(T, F))) +
+  geom_text(aes(`Academic Year`, 0.5, label = round(`Sample Size`, 0)),
+            alpha = 0.4, na.rm = TRUE) +
+  geom_hline(yintercept = 0.7, color = "red") +
+  scale_y_continuous(labels=scales::percent) +
+  facet_wrap(vars(`Learning Objective Number`)) +
+  theme_minimal() +
+  labs(title = title, caption = caption) +
+  theme(axis.title = element_blank(),
+        text = element_text(family = "serif"),
+        panel.grid.minor.x = element_blank(),
+        legend.position = "none")
 ```
 
 
@@ -306,7 +350,6 @@ knitr::kable(out %>% filter(`Academic Year`==2019), dig=2)
 
 ```{r}
 title <- "Business Core, Prevalence of Achievments Over Academic Years, by PLO"
-subtitle <- "All the PLOs meet the goal of 70%. While some show a good improvement from the previous\nyear (PLO3 and 4), others worsened (PLO6, 7, and 8)."
 caption <- "Grey number represents sample size.\nFor 2019, minimum sample size is used if prevalence is computed from multiple criteria."
 ggplot(out %>% filter(`Learning Objective Number` != 1),
        aes(`Academic Year`, Outcome, group = `Learning Objective Number`)) +
@@ -319,7 +362,7 @@ ggplot(out %>% filter(`Learning Objective Number` != 1),
   scale_y_continuous(labels=scales::percent) +
   facet_wrap(vars(`Learning Objective Number`)) +
   theme_minimal() +
-  labs(title = title, subtitle = subtitle, caption = caption) +
+  labs(title = title, caption = caption) +
   theme(axis.title = element_blank(),
         text = element_text(family = "serif"),
         panel.grid.minor.x = element_blank(),
@@ -329,6 +372,9 @@ ggplot(out %>% filter(`Learning Objective Number` != 1),
 ToDo: PLO 9 has a different threshold (0.9). Address that.
 
 ## Economics
+```{r}
+lres <- list()
+```
 
 ### PLO1
 ECO 301 missing? Not even in the request.
@@ -336,9 +382,11 @@ ECO 301 missing? Not even in the request.
 ### PLO2
 ECO 302 for spring 2020. Information is provided in the form of non-rubric assessment.
 ```{r}
-x <- non %>% filter(str_detect(Course, "ECO 302")) %>% 
-  mutate(Met = pass_n/n)
-knitr::kable(x %>% select(`Assessment Name`, "Met", n), dig=2)
+x <- non %>% filter(str_detect(Course, "ECO 302"),
+                    str_detect(`PLO Mixed`, "LO2")) %>% 
+  mutate(PLO = str_extract(`PLO Mixed`, "\\d"), Met = pass_n/n)
+knitr::kable(x %>% select(PLO, `Assessment Name`, "Met", n), dig=2)
+lres[["PLO2"]] <- x
 ```
 
 ### PLO3-5
@@ -359,7 +407,6 @@ Identify and differentiate financial concepts, theories, and/or methods that are
 Use qualitative and quantitative methods to examine the worthiness of a common business issue.
 
 ## Human Resource Management
-Likewise, rubric rows are not specified.
 
 ```{r}
 x <-tbl %>% filter(Course == "HRM 400") %>% ungroup() %>% 
@@ -367,24 +414,41 @@ x <-tbl %>% filter(Course == "HRM 400") %>% ungroup() %>%
 knitr::kable(x, dig=2)
 ```
 
+### PLO1
+Choose effective HR strategies that incorporate human and organizational dynamics while leveraging available HR technologies.
+
+### PLO2
+Assess effectiveness of HR programs and compensation and benefits plans across organizational types.
+
+### PLO3
+LO3: Evaluate HR policy for alignment with current HR Law and ethical HR practices.
+
+### PLO4
+Demonstrate effective leadership in a team setting. 
+
 Also, non-rubric assessments are included.
 ```{r}
 x <- non %>% filter(str_detect(Course, "HRM 400")) %>% 
   mutate(Met = pass_n/n)
+x
 knitr::kable(x %>% select(`Assessment Name`, "Met", n), dig=2)
 ```
 
 
 ## Management
-First sheet has a set of new PLOs:
+```{r}
+lres <- list()
+```
 
 ### PLO1
 Summative (collected as a single assessment score from the simulation this cycle. Next cycle, will be a two-row rubric in D2L). Alternative assessment for this cycle: PLO1/CLO1 in final paper rubric
 ```{r}
 x <- tbl %>%
   filter(`Assessment Name`=="Ethics Final Paper",
-         Course == "BUS 345", str_detect(Name, "Plo1"))
+         Course == "BUS 345", str_detect(Name, "Plo1")) %>% 
+  mutate(PLO = 1, mean = Met, min_n = n)
 knitr::kable(x, dig = 2)
+lres[["PLO1"]] <- x
 ```
 
 ### PLO2
@@ -393,8 +457,10 @@ Summative (collected as a single assessment score from the simulation this cycle
 ```{r}
 x <- tbl %>%
   filter(`Assessment Name`=="Ethics Final Paper",
-         Course == "BUS 345", str_detect(Name, "Plo2"))
+         Course == "BUS 345", str_detect(Name, "Plo2")) %>% 
+  mutate(PLO = 2, mean = Met, min_n = n)
 knitr::kable(x, dig = 2)
+lres[["PLO2"]] <- x
 ```
 
 
@@ -404,7 +470,11 @@ Summative Rows PLO7a, b, c (all CLO3) in final paper rubric
 x <- tbl %>%
   filter(`Assessment Name`=="Ethics Final Paper",
          Course == "BUS 345", str_detect(Name, "Plo7"))
-knitr::kable(x, dig = 2)
+res <- x %>% summarize(mean = mean(Met),
+                       min_n = min(n), max_n = max(n)) %>%
+  mutate(PLO = 3)
+knitr::kable(res, dig=2)
+lres[["PLO3"]] <- res
 ```
 
 ### PLO4
@@ -416,6 +486,42 @@ x <- tbl %>%
   filter(`Assessment Name`=="Ethics Reflection",
          Course == "BUS 345")
 knitr::kable(x, dig = 2)
+```
+
+### Trend
+```{r}
+x <- bind_rows(lres)
+x <- x %>% ungroup() %>% 
+  transmute(`Academic Year` = rep(2019, nrow(x)),
+                     `Learning Objective Number` = PLO,
+                     `Outcome` = mean,
+                     `Sample Size` = min_n )
+y <- past %>%
+  filter(Program == "Economics", `Assessment Type` == "Internal") %>% 
+  select(`Academic Year`, `Learning Objective Number`, Outcome, `Sample Size`)
+out <- bind_rows(x, y)
+knitr::kable(out %>% filter(`Academic Year`==2019), dig=2)
+```
+
+```{r}
+title <- "Management, Prevalence of Achievments Over Academic Years, by PLO"
+caption <- "Grey number represents sample size.\nFor 2019, minimum sample size is used if prevalence is computed from multiple criteria."
+ggplot(out %>% filter(`Learning Objective Number` != 4),
+       aes(`Academic Year`, Outcome, group = `Learning Objective Number`)) +
+  geom_line(na.rm = TRUE) +
+  geom_point(aes(color = Outcome > 0.7), na.rm = TRUE) +
+  scale_colour_manual(values = setNames(c('blue','red'),c(T, F))) +
+  geom_text(aes(`Academic Year`, 0.5, label = round(`Sample Size`, 0)),
+            alpha = 0.4, na.rm = TRUE) +
+  geom_hline(yintercept = 0.7, color = "red") +
+  scale_y_continuous(labels=scales::percent) +
+  facet_wrap(vars(`Learning Objective Number`)) +
+  theme_minimal() +
+  labs(title = title, caption = caption) +
+  theme(axis.title = element_blank(),
+        text = element_text(family = "serif"),
+        panel.grid.minor.x = element_blank(),
+        legend.position = "none")
 ```
 
 
@@ -444,6 +550,9 @@ Interpret data to support ethical marketing decisions across constituencies
 
 ## MBA
 ~~First sheet is not updated.~~ Check last sheet.
+```{r}
+lres <- list()
+```
 
 ### PLO1
 Demonstrate ability to solve problems using the tools of accounting
@@ -451,8 +560,10 @@ Demonstrate ability to solve problems using the tools of accounting
 Score on the final exam in ACC 711
 ```{r}
 x <- non %>% filter(str_detect(Course, "ACC 711")) %>% 
-  mutate(Met = pass_n/n)
-knitr::kable(x %>% select(`Assessment Name`, "Met", n), dig=2)
+  mutate(PLO = 1, Met = pass_n/n)
+res <- x %>% select(PLO, `Assessment Name`, "Met", min_n = n)
+knitr::kable(res, dig=2)
+lres[["PLO1"]] <- res
 ```
 
 ### PLO2
@@ -461,8 +572,10 @@ Demonstrate ability to solve problems using the tools of economics
 Score on the final exam in ECO 716
 ```{r}
 x <- non %>% filter(str_detect(Course, "ECO 716")) %>% 
-  mutate(Met = pass_n/n)
-knitr::kable(x %>% select(`Assessment Name`, "Met", n), dig=2)
+  mutate(PLO = 2, Met = pass_n/n)
+res <- x %>% select(PLO, `Assessment Name`, "Met", min_n = n)
+knitr::kable(res, dig=2)
+lres[["PLO2"]] <- res
 ```
 
 ### PLO3
@@ -471,8 +584,11 @@ Demonstrate ability to solve problems using the tools of finance
 Score on the final exam in FIN 711
 ```{r}
 x <- non %>% filter(str_detect(Course, "FIN 711")) %>% 
-  mutate(Met = pass_n/n)
-knitr::kable(x %>% select(`Assessment Name`, "Met", n), dig=2)
+  mutate(PLO = 3, Met = pass_n/n)
+res <- x %>% summarise(Met = mean(Met), min_n = min(n), max_n = max(n)) %>% 
+  mutate(PLO = 3)
+knitr::kable(res, dig=2)
+lres[["PLO3"]] <- res
 ```
 
 ### PLO4
@@ -481,8 +597,10 @@ Demonstrate ability to solve problems using the tools of human resource manageme
 Score on the final exam in HRM 711
 ```{r}
 x <- non %>% filter(str_detect(Course, "HRM 711")) %>% 
-  mutate(Met = pass_n/n)
-knitr::kable(x %>% select(`Assessment Name`, "Met", n), dig=2)
+  mutate(PLO = 4, Met = pass_n/n)
+res <- x %>% select(PLO, `Assessment Name`, "Met", min_n = n)
+knitr::kable(res, dig=2)
+lres[["PLO4"]] <- res
 ```
 
 ### PLO5
@@ -498,8 +616,11 @@ Demonstrate ability to solve problems using the tools of marketing
 Score on the final exam in MKT 711
 ```{r}
 x <- non %>% filter(str_detect(Course, "MKT 711")) %>% 
-  mutate(Met = pass_n/n)
-knitr::kable(x %>% select(`Assessment Name`, "Met", n), dig=2)
+  mutate(PLO = 6, Met = pass_n/n)
+res <- x %>% summarise(Met = mean(Met), min_n = min(n), max_n = max(n)) %>% 
+  mutate(PLO = 6)
+knitr::kable(res, dig=2)
+lres[["PLO6"]] <- res
 ```
 
 ### PLO7
@@ -515,10 +636,50 @@ Employ mathematical and statistical techniques in business decision-making
 Score on the final exam in BUS 771
 
 ```{r}
-tbl %>% filter(Course == "BUS 771")
+x <- non %>% filter(str_detect(Course, "BUS 771")) %>% 
+  mutate(PLO = str_extract(`PLO Mixed`, "\\d"), Met = pass_n/n)
+res <- x %>% summarise(Met = mean(Met), min_n = min(n), max_n = max(n)) %>% 
+  mutate(PLO = 8)
+knitr::kable(res, dig=2)
+lres[["PLO8"]] <- res
 ```
 
+### Trend
+```{r}
+x <- bind_rows(lres)
+x <- x %>% ungroup() %>% 
+  transmute(`Academic Year` = rep(2019, nrow(x)),
+                     `Learning Objective Number` = PLO,
+                     `Outcome` = Met,
+                     `Sample Size` = min_n )
+y <- past %>%
+  filter(Program == "Business Core", `Assessment Type` == "Internal",
+         str_detect(Source, "2020")) %>% 
+  select(`Academic Year`, `Learning Objective Number`, Outcome, `Sample Size`)
+out <- bind_rows(x, y)
+knitr::kable(out %>% filter(`Academic Year`==2019), dig=2)
+```
 
+```{r}
+title <- "MBA, Prevalence of Achievments Over Academic Years, by PLO"
+caption <- "Grey number represents sample size.\nFor 2019, minimum sample size is used if prevalence is computed from multiple criteria."
+ggplot(out %>% filter(`Learning Objective Number` != 9, `Learning Objective Number` != 10),
+       aes(`Academic Year`, Outcome, group = `Learning Objective Number`)) +
+  geom_line(na.rm = TRUE) +
+  geom_point(aes(color = Outcome > 0.7), na.rm = TRUE) +
+  scale_colour_manual(values = setNames(c('blue','red'),c(T, F))) +
+  geom_text(aes(`Academic Year`, 0.5, label = round(`Sample Size`, 0)),
+            alpha = 0.4, na.rm = TRUE) +
+  geom_hline(yintercept = 0.7, color = "red") +
+  scale_y_continuous(labels=scales::percent) +
+  facet_wrap(vars(`Learning Objective Number`)) +
+  theme_minimal() +
+  labs(title = title, caption = caption) +
+  theme(axis.title = element_blank(),
+        text = element_text(family = "serif"),
+        panel.grid.minor.x = element_blank(),
+        legend.position = "none")
+```
 
 ## MIS
 MIS 401 (MGT 373)
