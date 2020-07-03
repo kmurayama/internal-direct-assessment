@@ -38,13 +38,78 @@ source('munge.R')
 
 In this document, begin some refactoring for convenience in the future. Document them and apply into the source files above, when moving on to the next iteration.
 
+## Non-rubric Outcomes Clean up
+First, distinguish course and section.
 ```{r}
 non <- non %>%
   mutate(Section = factor(Course),
-         Course = factor(str_sub(Course, 1, 7)),
-         )
+         Course = factor(str_sub(Course, 1, 7)))
+```
 
-#table(non$Course, non$`Assessment Name`)
+Assessment Names are not standardized and subject to aggregation errors. 
+```{r}
+levels(factor(non$`Assessment Name`))
+```
+
+Assessment names:
+```{r}
+tbl <- non %>% group_by(Course, `Assessment Name`) %>% summarize(n = n())
+knitr::kable(tbl)
+```
+
+```{r, eval=FALSE}
+non %>% filter(str_detect(`Assessment Name`, "Information Literacy")) # into this
+
+non %>% filter(str_detect(`Assessment Name`, "Exam")) %>% select(Section, `Assessment Name`, `PLO Mixed`) # List up?
+# Same "exam" can refer to different parts. Check PLOs.
+
+non %>% filter(Course == "BUS 242", str_detect(`Assessment Name`, "signature assignment")) # Into Singature Assignment
+
+non %>% filter(Course == "BUS 381") # ? Signature Assignment = Final Project, but multiple objectives?
+non %>% filter(Course == "BUS 381") %>% select(Section, `Assessment Name`, `PLO Mixed`) # LO1-3,5,8 are separate in 002. Aggregate to be consistent with others?
+non %>% filter(Course == "BUS 381", str_detect(`Assessment Name`, "(Final Project)|(Signature Assignment)")) # Into "Signature Assignment"/
+
+non %>% filter(Course == "FIN 301") # 1: Ratio data ~ Sig 1, 2: capital budgeting, 3:Ethics ~ Sig 4, "Rich Uncle" combines 1 & 2; 2019 Fall different? ... Need to ask.
+
+non %>% filter(Course == "MGT 300")
+non %>% filter(Course == "MGT 300", str_detect(`Assessment Name`, "Burt's Bees")) # Into Burt's Bees
+non %>% filter(Course == "MIS 201") # Mark Kjellander inconsistent with Adnan's? With Final Exam question and ALL LO ... Leave as is and skip. Meanwhile, ask Adnan for clarification
+```
+```{r}
+# Test:
+#course1 <- "BUS 381"
+#name1 <- "(Final Project)|(Signature Assignment)"
+#pattern1 <- "(.*Final Project.*)|(.*Signature Assignment.*)"
+#name2 <- "Signature Assignment"
+#
+#non %>% filter(Course == course1, str_detect(`Assessment Name`, name1)) %>% transmute(`Assessment Name`, New = str_replace_all(`Assessment Name`, pattern1, name2))
+
+pttrn.bus771 <- c(".*Information Literacy.*" = "Information Literacy",
+                  ".*Exam.*" = "Exam")
+pttrn.bus242 <- c("signature assignment.*" = "Signature Assignment")
+pttrn.bus381 <- c("(.*Final Project.*)|(.*Signature Assignment.*)" = "Signature Assignment")
+pttrn.mgt300.2 <- c("Burt's Bees.*" = "Burt's Bees")
+pttrn <- c(pttrn.bus771, pttrn.bus242, pttrn.bus381, pttrn.mgt300.2)
+
+non <- non %>% mutate(`Assessment Name` = str_replace_all(`Assessment Name`, pttrn))
+table(non$`Assessment Name`)
+```
+
+PLOs:
+```{r}
+# Standardize cases and extra spaces
+non <- non %>% mutate(`PLO Mixed` =
+                        str_replace_all(str_to_upper(`PLO Mixed`), "\\s\\s", " "))
+table(non$`PLO Mixed`)
+```
+
+Lastly, convert variable types and compute the proporiton of students who passed the goal.
+```{r}
+non <- non %>% mutate(Instructor = factor(Instructor),
+                      Semester = factor(Semester),
+                      Program = factor(Program),
+                      Met = pass_n / n)
+summary(non)
 ```
 
 
