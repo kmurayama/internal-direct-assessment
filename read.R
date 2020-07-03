@@ -100,7 +100,8 @@ mdf <- df %>%
 dim(mdf)
 
 ## ---- import supplementary ----
-past <- read_excel("data/Assessment Data Main.xlsx")
+past <- read_excel("data/Assessment Data Main.xlsx", sheet = "Main")
+map <- read_excel("data/Assessment Data Main.xlsx", sheet = "Mapping")
 non <- read_excel("data/Non Rubric Data.xlsx")
 non <- non %>% transmute(
   Instructor = Name,

@@ -116,6 +116,9 @@ summary(non)
 ## Mapping
 Excel files under `2. Assessment Plan` folder in SharePoint are good for *developing assessment plans* but hard to refer back. Use the "database" file `/Data/Assessment Data Main.xlsx` for *maintenance*.
 
+Specify the "Main" worksheet while reading the file in `read.R` (i.e. modify the existing line) and "Mapping" worksheet for the new info (i.e. add a new line). The mapping is stored in `map` object.
+
+
 # PLO Measures for Standard 4
 For Standard 4, we only need a rather small subset of the assessments available. Produce the summary of outcomes in the context of historical changes. 
 
