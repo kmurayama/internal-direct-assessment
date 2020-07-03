@@ -98,3 +98,17 @@ mdf <- df %>%
                                 `Assessment Name`, Semester,
                                 Section, Course), by="RubricId")
 dim(mdf)
+
+## ---- import supplementary ----
+past <- read_excel("data/Assessment Data Main.xlsx")
+non <- read_excel("data/Non Rubric Data.xlsx")
+non <- non %>% transmute(
+  Instructor = Name,
+  Semester = `In which semester is this course?`,
+  Course = paste(Program, Course, Section),
+  `Assessment Name` = `What is the name of the assessment you used? (e.g., International Trade Case Study, Final Exam Question 3, etc.)`,
+  `Program`, `PLO Mixed`=PLO,
+  n = `What is the total number of students that completed the assessment tool for your second learning objective?`,
+  pass_n = `If this is an undergraduate assessment, how many students achieved a rubric level of "basic" or scored 70% or better on the assessment?  If this is an MBA formative assessment, how many students s...`,
+  Interpretation = `Analysis/Interpretation of Results for your learning objective: Briefly answer the question, What do your assessment data tell us?`,
+  Action = `Action for improvement: Briefly explain how you will use the assessment results to make improvements to your course or curriculum.2`)

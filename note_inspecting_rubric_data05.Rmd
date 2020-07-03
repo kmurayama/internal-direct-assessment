@@ -1,0 +1,81 @@
+---
+title: "Note to Inspect Rubric Data 5"
+date: 7/3/2020
+output:
+  html_notebook:
+    toc: yes
+    toc_float:
+      collapsed: yes
+    code_folding: hide
+  html_document:
+    toc: yes
+    toc_float:
+      collapsed: no
+    df_print: paged
+    code_folding: hide
+---
+
+```{r, echo=FALSE, include=FALSE}
+#knitr::opts_chunk$set(message = FALSE, warning = FALSE)
+library(tidyverse)
+options(dplyr.summarise.inform=FALSE) 
+library(readxl)
+```
+
+# Objective
+Data are mostly cleaned and organized; PLOs are largely matched for Standard 4 reporting; yet, there are several critically missing pieces. 1) Present the outcomes for those which are present and 2) sort out the current situation and follow up with faculty/staff for missing information (i.e. missing data, assessments, and mappings).
+
+# Set up
+Import data. Codes are externalized for reuse. As a reference:
+- `mdf` or main data frame contains the rubric outcome data merged with the course/assessment information gathered from the survey. Data are mostly cleaned up.
+- `past` data frame contains the assessment outcome data from the past.
+- `non` data frame contains the AY2019 assessments without rubrics.
+```{r}
+source('read.R')
+# ToDo: Avoid use of side-effects. Save and reload. Merge this step with top chunk.
+source('munge.R')
+```
+
+In this document, begin some refactoring for convenience in the future. Document them and apply into the source files above, when moving on to the next iteration.
+
+```{r}
+non <- non %>%
+  mutate(Section = factor(Course),
+         Course = factor(str_sub(Course, 1, 7)),
+         )
+
+#table(non$Course, non$`Assessment Name`)
+```
+
+
+## Mapping
+Excel files under `2. Assessment Plan` folder in SharePoint are good for *developing assessment plans* but hard to refer back. Use the "database" file `/Data/Assessment Data Main.xlsx` for *maintenance*.
+
+# PLO Measures for Standard 4
+For Standard 4, we only need a rather small subset of the assessments available. Produce the summary of outcomes in the context of historical changes. 
+
+- ACBSP requires 3-5 data points, so make sure to have sufficient numbers.
+- ACBSP requires graphs with sample sizes.
+- Nuventive requires numbers. Produce data tables along with the graphs.
+
+Once Standard 4 is done, we can discuss weakness/shortcomings and strength/improvements in our program, then look at other courses - including the ones at an earlier stage of each program - to find *opportunities for improvement* and *close the loop*. That is, we can get to **Standard 6** analysis.
+
+## Summarize Outcomes
+Rubric outcome data are collected at individual level. Take average over `Course` level for each assignment. All the inconsistencies have been dealt with.
+```{r}
+# Undergrad focus for now
+tbl <- mdf %>% filter(str_detect(Name, "Major|Minor", negate = TRUE)) %>%
+  group_by(Course, `Assessment Name`, Name) %>%
+  summarise(Met = mean(Met.UND.bin), n = n())
+```
+
+
+On the other hand, non-rubric data are collected at `Section` level and as shares of students who achieved goals. Use the class size as a weight to have the proper aggregation.
+```{r}
+levels(non$`Assessment Name`)
+names(non)
+tbl2 <- non %>%
+  group_by(Course, `Assessment Name`) %>%
+  summarise(Met = weighted.mean(x = pass_n/n, w = n))
+tbl2
+```
