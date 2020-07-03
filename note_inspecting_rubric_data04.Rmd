@@ -53,21 +53,11 @@ We first need simple statistics for the given set of assessment tools. See the `
 
 Here is a full list of the rubric outcomes at the rubric-row level disaggregation. Note that most of them are not used for the reporting, but for internal use (detailed analysis and *closing the loop*, or *Standard 6*). The table is organized by `Course` and `Assessment Name`.
 
-The table is comprehensive and long. Skip to the next section ([Business]) if you do not need a particular piece of information.
 ```{r}
 # Undergrad focus for now
 tbl <- mdf %>% filter(str_detect(Name, "Major|Minor", negate = TRUE)) %>%
   group_by(Course, `Assessment Name`, Name) %>%
   summarise(Met = mean(Met.UND.bin), n = n())
-#  summarise(across(ends_with(".bin"), mean, na.rm = TRUE), n = n())
-knitr::kable(tbl, digits=2,
-             col.names = c("Course", "Assessment Name",
-                           "Criterion (Rubric Row)",
-                           "Achieved (share)", "Sample Size (n)"))
-```
-```{r}
-non %>% arrange(Course)
-#knitr::kable(non %>% arrange(Course))
 ```
 
 ## Accounting
@@ -78,9 +68,7 @@ lres <- list()
 ### PLO1
 Prepare consolidated financial statements in accordance with current accounting principles generally accepted in the United States of America, and learn how each statement is used for business decision making.
 
-ACC331
-
-Exam question.  Students will be required to prepare GAAP based financial statements and non-GAAP financial statements and assess the impacts of GAAP compliance.
+ACC331. Exam question.  Students will be required to prepare GAAP based financial statements and non-GAAP financial statements and assess the impacts of GAAP compliance.
 ```{r}
 x <- non %>% filter(str_detect(Course, "ACC 331"),
                     str_detect(`PLO Mixed`, "LO 1")) %>% 
@@ -93,9 +81,7 @@ lres[["PLO1"]] <- x
 ### PLO2
 Compare the impact of alternative costing methods.
 
-ACC331
-
-Exam question.  Students will calculate the cost of produced goods using alternative costing systems and assess the implications of costing system applied.
+ACC331. Exam question.  Students will calculate the cost of produced goods using alternative costing systems and assess the implications of costing system applied.
 ```{r}
 x <- non %>% filter(str_detect(Course, "ACC 331"),
                     str_detect(`PLO Mixed`, "LO 2")) %>% 
@@ -416,18 +402,48 @@ knitr::kable(x, dig=2)
 By inspecting citeria, I can guess each assignment corresponds to PLO1-3, but not entirely sure.
 
 ```{r}
-res %>% filter(Course == "HRM 400") %>% select(`Action for Improvement`)
+x <- df2 %>% filter(Course == "HRM 400") %>% select(Intrepretation)
+knitr::kable(x)
 ```
 
 
 ### PLO1
 Choose effective HR strategies that incorporate human and organizational dynamics while leveraging available HR technologies.
 
+```{r}
+x <- tbl %>% filter(Course == "HRM 400",
+                    `Assessment Name` == "Paper #1",
+                    Name == "Organizational Types")
+res <- x %>% mutate(PLO = 1)
+```
+
+
 ### PLO2
 Assess effectiveness of HR programs and compensation and benefits plans across organizational types.
 
+```{r}
+x <- tbl %>% filter(
+  Course == "HRM 400",
+  `Assessment Name` == "Simulation Paper #2",
+  str_detect(Name, "(Organizational Types)|(Organizational Strategy)"))
+res <- x %>%
+  summarize(mean = mean(Met), min_n = min(n), max_n = max(n)) %>% 
+  mutate(PLO = 2)
+knitr::kable(res, dig=2)
+```
+
 ### PLO3
 LO3: Evaluate HR policy for alignment with current HR Law and ethical HR practices.
+```{r}
+x <- tbl %>% filter(
+  Course == "HRM 400",
+  `Assessment Name` == "Simulation Paper 3",
+  str_detect(Name, "Hr Law"))
+res <- x %>%
+  summarize(mean = mean(Met), min_n = min(n), max_n = max(n)) %>% 
+  mutate(PLO = 3)
+knitr::kable(res, dig=2)
+```
 
 ### PLO4
 Demonstrate effective leadership in a team setting. 
@@ -436,7 +452,6 @@ Also, non-rubric assessments are included.
 ```{r}
 x <- non %>% filter(str_detect(Course, "HRM 400")) %>% 
   mutate(Met = pass_n/n)
-x
 knitr::kable(x %>% select(`Assessment Name`, "Met", n), dig=2)
 ```
 
@@ -488,11 +503,13 @@ Summative Use overall rubric total from reflection and development plan
 
 "Ethics Reflection"? Name altered earlier?
 ```{r}
-tbl %>% filter(Course == "BUS 345")
 x <- tbl %>%
   filter(`Assessment Name`=="Ethics Reflection",
          Course == "BUS 345")
-knitr::kable(x, dig = 2)
+res <- x %>% summarize(mean = mean(Met),
+                       min_n = min(n), max_n = max(n)) %>%
+  mutate(PLO = 3)
+knitr::kable(res, dig=2)
 ```
 
 ### Trend
@@ -533,19 +550,17 @@ ggplot(out %>% filter(`Learning Objective Number` != 4),
 
 
 ## Marketing
-All are from MKT401, where rubrics are used.
-
-"Goal 1 is not part of the current internal assessment cycle"? That includes PLO2?
-
-Also, first sheet contains the new PLOs.
-
-MKT PLO1-3 marked with Eric Freeman.
+Eric Freeman did MKT 401. Not much additional information?
+In comment, he mentions that the course has been developed recently.
 
 ```{r}
 x <- tbl %>% filter(Course == "MKT 401") %>% ungroup() %>% 
   select(`Assessment Name`, Name, Met, n)
 knitr::kable(x, dig=2)
 ```
+
+### PLO1
+Demonstrate inter-relationships of core marketing principles
 
 ### PLO2
 Effectively communicate marketing decisions and processes
@@ -617,6 +632,8 @@ Score on the final exam in MKT 741
 
 Not found in requests. MBA LO5 is missing in requests. Eric Freeman (as in Marketing requests)
 
+If none, get comprehensice exam?
+
 ### PLO6
 Demonstrate ability to solve problems using the tools of marketing
 
@@ -636,6 +653,8 @@ Demonstrate ability to solve problems using the tools of strategic management
 Score on the final exam in MGT 799
 
 Not found in requests. BUS 799 marked as "MBA LO7". Taught by Paul Redden.
+
+*No info.
 
 ### PLO8
 Employ mathematical and statistical techniques in business decision-making
@@ -693,9 +712,23 @@ MIS 401 (MGT 373)
 
 Not requested? Use just exams?
 
+Adnun?
+
 ### PLO1
 Evaluate how database management software helps business professionals and supports the operations and management of a business.
 
 ### PLO2
 Evaluate the role of planning and business models in the development of business/IT strategies, architectures, and applications.
+
+
+# Appendix
+```{r}
+knitr::kable(tbl, digits=2,
+             col.names = c("Course", "Assessment Name",
+                           "Criterion (Rubric Row)",
+                           "Achieved (share)", "Sample Size (n)"))
+```
+```{r}
+non %>% arrange(Course)
+```
 

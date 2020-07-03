@@ -86,15 +86,15 @@ res$RubricId <- factor(str_extract_all(x, "[0-9]{6}", simplify=TRUE))
 ## Drop 92 ?
 
 id.drop <- c(2, 22, 41, 77, 71, 1, 83, 88, 116, 37, 93, 92)
-res <- res %>% filter(!ID %in% id.drop)
+df2 <- res %>% filter(!ID %in% id.drop)
 
-res.trim <- res %>%
+df2.trim <- res %>%
   mutate(across(c(ID, Email:Semester, Section:Course), factor) )
 
 ## ---- merge ----
 dim(df)
 mdf <- df %>%
-  left_join(res.trim %>% select(RubricId, Instructor = Name, Course,
+  left_join(df2.trim %>% select(RubricId, Instructor = Name, Course,
                                 `Assessment Name`, Semester,
                                 Section, Course), by="RubricId")
 dim(mdf)
