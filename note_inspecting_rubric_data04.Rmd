@@ -1,17 +1,17 @@
 ---
 title: "Note to Inspect Rubric Data 4"
-date: 6/30/2020
+date: 7/3/2020
 output:
-  html_notebook:
-    toc: yes
-    toc_float:
-      collapsed: yes
-    code_folding: hide
   html_document:
     toc: yes
     toc_float:
       collapsed: no
     df_print: paged
+    code_folding: hide
+  html_notebook:
+    toc: yes
+    toc_float:
+      collapsed: yes
     code_folding: hide
 ---
 
@@ -720,6 +720,12 @@ Evaluate how database management software helps business professionals and suppo
 ### PLO2
 Evaluate the role of planning and business models in the development of business/IT strategies, architectures, and applications.
 
+# Next
+The note is getting a little messy. Move on to the next. It is now getting to a presentation stage, so pay attention to the organization as well. Little need to have subsection for each PLO. Put them together under Goals or higher. Present the trend first since most of data are available now.
+
+That said, I need to add some details as well. List up the sources of each outcome, highlighting what classes are missing. For this purpose, I just made a one-sheet summary of mappings. Use that as a reference.
+
+Along with that line, push the follow-up effort further. Finance data needs to be checked from Jon Kallis. Missing data needs to be compensated. Ambiguous mappings need to clarified. Have a go-to place to check these.
 
 # Appendix
 ```{r}
