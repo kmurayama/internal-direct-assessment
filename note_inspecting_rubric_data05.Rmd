@@ -118,8 +118,9 @@ Excel files under `2. Assessment Plan` folder in SharePoint are good for *develo
 
 Specify the "Main" worksheet while reading the file in `read.R` (i.e. modify the existing line) and "Mapping" worksheet for the new info (i.e. add a new line). The mapping is stored in `map` object.
 
-
 # PLO Measures for Standard 4
+
+## Overview
 For Standard 4, we only need a rather small subset of the assessments available. Produce the summary of outcomes in the context of historical changes. 
 
 - ACBSP requires 3-5 data points, so make sure to have sufficient numbers.
@@ -132,18 +133,227 @@ Once Standard 4 is done, we can discuss weakness/shortcomings and strength/impro
 Rubric outcome data are collected at individual level. Take average over `Course` level for each assignment. All the inconsistencies have been dealt with.
 ```{r}
 # Undergrad focus for now
-tbl <- mdf %>% filter(str_detect(Name, "Major|Minor", negate = TRUE)) %>%
+tbl1 <- mdf %>% filter(str_detect(Name, "Major|Minor", negate = TRUE)) %>%
   group_by(Course, `Assessment Name`, Name) %>%
   summarise(Met = mean(Met.UND.bin), n = n())
 ```
 
-
-On the other hand, non-rubric data are collected at `Section` level and as shares of students who achieved goals. Use the class size as a weight to have the proper aggregation.
+Non-rubric data are collected at `Section` level and as shares of students who achieved goals. Use the class size as a weight to have the proper aggregation. Moreover, keep the `PLO Mixed` column for identifying apparently-identical assessments (e.g. different parts of exams).
 ```{r}
-levels(non$`Assessment Name`)
-names(non)
 tbl2 <- non %>%
-  group_by(Course, `Assessment Name`) %>%
-  summarise(Met = weighted.mean(x = pass_n/n, w = n))
-tbl2
+  group_by(Course, `Assessment Name`, `PLO Mixed`) %>%
+  summarise(Met = weighted.mean(x = pass_n/n, w = n, na.rm = TRUE),
+            n = sum(n, na.rm = TRUE))
+#non %>% filter(Course == "BUS 381")
+#non %>% filter(Course == "FIN 301")
 ```
+
+Lastly, the mapping between PLOs and rubric rows, where available, can be used to pick up relevant information.
+```{r}
+# map is taken by purr. Rename it...
+mapping <- map
+# Replace text NA into na
+mapping <- mapping %>% mutate(across(where(is.character), na_if, "NA"))
+```
+
+### Mapping Usage?
+Now, when exact match of assessment names are rare. How shall I automte this?
+
+List up PLOs for a program.
+```{r}
+x <- mapping %>% filter(Program == "Accounting") %>%
+  discard(~all(is.na(.x))) %>% map_df(~.x) %>% 
+  select(-c(Program, Goal, `Last Checked`))
+knitr::kable(x)
+```
+
+Extract each PLO.
+```{r}
+mapping[1, ]
+```
+
+If assessment names are uniquely identified, I can merge `mdf` and `non` with `mapping` and filter results. However, that's not the case at all. Instead, manually select rows (as in the previous note), but use the assessment names taken from the `mapping` ... with modification.
+
+Treat `PLO Mixed` as if they are rubric rows and merge the data frames.
+```{r}
+names(tbl1); names(tbl2)
+tbl2 <- tbl2 %>% rename(Name = `PLO Mixed`)
+tbl3 <- tbl1 %>% bind_rows(tbl2)
+summary(tbl3)
+```
+
+Now, try to find patterns?
+```{r}
+mapping %>% filter(Program == "Accounting") %>%
+  discard(~all(is.na(.x))) %>% map_df(~.x) %>% 
+  select(-c(Program, Goal, `Last Checked`))
+x <- tbl3 %>% filter(Course == "ACC 331", `Assessment Name` == "Exam", Name == "ACCOUNTING LO 1")
+x %>% summarize(mean = mean(Met), n = min(n)) %>% mutate(PLO = 2)
+tbl3 %>% filter(Course == "ACC 331", `Assessment Name` == "Exam", Name == "ACCOUNTING LO 2")
+x %>% summarize(mean = mean(Met), n = min(n)) %>% mutate(PLO = 3)
+tbl3 %>% filter(Course == "ACC 441", `Assessment Name` == "Exam", Name == "ACCOUNTING LO 4")
+x %>% summarize(mean = mean(Met), n = min(n)) %>% mutate(PLO = 4)
+
+mapping %>% filter(Program == "Business Core") %>%
+  discard(~all(is.na(.x))) %>% map_df(~.x) %>% 
+  select(-c(Program, Goal, `Last Checked`))
+tbl3 %>% filter(Course == "BUS 499")
+x <- tbl3 %>% filter(Course == "BUS 499", `Assessment Name` == "Annotated Bibliography", str_detect(Name, "Plo2"))
+x %>% summarize(mean = mean(Met), n = min(n)) %>% mutate(PLO = 2)
+x <- tbl3 %>% filter(Course == "BUS 499", `Assessment Name` == "Company Profile", str_detect(Name, "Plo3"))
+x %>% summarize(mean = mean(Met), n = min(n)) %>% mutate(PLO = 3)
+x <- tbl3 %>% filter(Course == "BUS 499", `Assessment Name` == "Goventure Aar", str_detect(Name, "Plo4"))
+x %>% summarize(mean = mean(Met), n = min(n)) %>% mutate(PLO = 4)
+x <- tbl3 %>% filter(Course == "BUS 499", `Assessment Name` == "Company Profile", str_detect(Name, "5[a|b|c|d]"))
+x %>% summarize(mean = mean(Met), n = min(n)) %>% mutate(PLO = 5)
+x <- tbl3 %>% filter(Course == "BUS 499", `Assessment Name` == "Company Profile", str_detect(Name, "6[e|f|g]"))
+x %>% summarize(mean = mean(Met), n = min(n)) %>% mutate(PLO = 6)
+x <- tbl3 %>% filter(Course == "BUS 499", `Assessment Name` == "Ethics Case Paper", str_detect(Name, "Plo7"))
+x %>% summarize(mean = mean(Met), n = min(n)) %>% mutate(PLO = 7)
+x <- tbl3 %>% filter(Course == "BUS 499", `Assessment Name` == "Ethics Case Paper", str_detect(Name, "Plo8"))
+x %>% summarize(mean = mean(Met), n = min(n)) %>% mutate(PLO = 8)
+x <- tbl3 %>% filter(Course == "BUS 499", `Assessment Name` == "Goventure Aar", str_detect(Name, "Plo9"))
+x %>% summarize(mean = mean(Met), n = min(n)) %>% mutate(PLO = 9)
+x <- tbl3 %>% filter(Course == "BUS 499", `Assessment Name` == "Development Plan", str_detect(Name, ".*"))
+x %>% summarize(mean = mean(Met), n = min(n)) %>% mutate(PLO = 10)
+
+```
+
+I still need to feed course and assessment name, but the rest can be generalized.
+```{r}
+cname <- "BUS 499"
+aname <- "Annotated Bibliography"
+oname <- "Plo2"
+plo <- 2
+tbl3 %>% filter(Course == cname, `Assessment Name` == aname,
+                str_detect(Name, oname)) %>% 
+  summarize(mean = mean(Met), n = min(n)) %>% mutate(PLO = plo)
+```
+
+So, make a simple wrapper.
+```{r}
+cname <- "BUS 499"
+aname <- "Annotated Bibliography"
+oname <- "Plo2"
+plo <- 2
+get_outcome <- function(cname, aname, oname, plo){
+  tbl3 %>% filter(Course == cname, `Assessment Name` == aname,
+                  str_detect(Name, oname)) %>% 
+    summarize(mean = mean(Met), n = min(n)) %>% mutate(PLO = plo)
+}
+get_outcome(cname, aname, oname, plo)
+```
+
+And, I want a table and a graph for each program. Make a list as before.
+```{r}
+pname <- "Accounting"
+cnames <- c("ACC 331", "ACC 331", "ACC 441")
+anames <- c("Exam", "Exam", "Exam")
+onames <- c("ACCOUNTING LO 1", "ACCOUNTING LO 2", "ACCOUNTING LO 4")
+plos <- c(1, 2, 4)
+
+lres <- list()
+i <- 1
+lres[[i]] <- get_outcome(cnames[i], anames[i], onames[i], plos[i])
+i <- i + 1
+lres[[i]] <- get_outcome(cnames[i], anames[i], onames[i], plos[i])
+i <- i + 1
+lres[[i]] <- get_outcome(cnames[i], anames[i], onames[i], plos[i])
+```
+
+Wrap it.
+```{r}
+pname <- "Accounting"
+cnames <- c("ACC 331", "ACC 331", "ACC 441")
+anames <- c("Exam", "Exam", "Exam")
+onames <- c("ACCOUNTING LO 1", "ACCOUNTING LO 2", "ACCOUNTING LO 4")
+plos <- c(1, 2, 4)
+
+get_outcomes <- function(pname, cnames, anames, onames, plos){
+  lres <- list()
+  for(i in 1:length(plos)){
+    lres[[i]] <- get_outcome(cnames[i], anames[i], onames[i], plos[i])
+  }
+  lres
+}
+get_outcomes(pname, cnames, anames, onames, plos)
+```
+
+Put the list into a table and a graph.
+```{r}
+lres <- get_outcomes(pname, cnames, anames, onames, plos)
+
+get_output <- function(pname, lres){
+  x <- bind_rows(lres)
+  x <- x %>% ungroup() %>% 
+    transmute(`Academic Year` = rep(2019, nrow(x)),
+              `Learning Objective Number` = as.numeric(PLO),
+              `Outcome` = mean, `Sample Size` = n )
+  y <- past %>%
+    filter(Program == pname, `Assessment Type` == "Internal",
+           str_detect(Source, "2020")) %>% 
+    select(`Academic Year`, `Learning Objective Number`, Outcome, `Sample Size`)
+  out <- bind_rows(x, y)
+  
+  title <- paste0(pname, ", Prevalence of Achievments Over Academic Years, by PLO")
+  caption <- "Grey number represents sample size.\nFor 2019, minimum sample size is used if prevalence is computed from multiple criteria."
+  p <- ggplot(out,
+         aes(`Academic Year`, Outcome, group = `Learning Objective Number`)) +
+    geom_line(na.rm = TRUE) +
+    geom_point(aes(color = Outcome > 0.7), na.rm = TRUE) +
+    scale_colour_manual(values = setNames(c('blue','red'),c(T, F))) +
+    geom_text(aes(`Academic Year`, 0.5, label = round(`Sample Size`, 0)),
+              alpha = 0.4, na.rm = TRUE) +
+    geom_hline(yintercept = 0.7, color = "red") +
+    scale_y_continuous(labels=scales::percent) +
+    facet_wrap(vars(`Learning Objective Number`)) +
+    theme_minimal() +
+    labs(title = title, caption = caption) +
+    theme(axis.title = element_blank(),
+          text = element_text(family = "serif"),
+          panel.grid.minor.x = element_blank(),
+          legend.position = "none")
+    
+  list(out, p)
+}
+
+out <- get_output("Accounting", lres)
+knitr::kable(out[[1]], dig=2)
+print(out[[2]])
+```
+
+More.
+```{r}
+clist <- list("Accounting" = c("ACC 331", "ACC 331", "ACC 441"),
+           "Business Core" = rep("BUS 499", 10))
+alist <- list("Accounting" = c("Exam", "Exam", "Exam"),
+              "Business Core" = c("Annotated Bibliography", "Company Profile",
+                                  "Goventure Aar", "Company Profile",
+                                  "Company Profile", "Ethics Case Paper",
+                                  "Ethics Case Paper", "Goventure Aar",
+                                  "Development Plan"))
+olist <- list("Accounting" = c("ACCOUNTING LO 1", "ACCOUNTING LO 2",
+                               "ACCOUNTING LO 4"),
+           "Business Core" = c("Plo2", "Plo3", "Plo4", "5[a|b|c|d]", "6[e|f|g]",
+                               "Plo7", "Plo8", "Plo9", ".*"))
+plist <- list("Accounting" = c(1, 2, 4),
+              "Business Core" = 2:10)
+
+
+pname <- "Accounting"
+clist[[pname]] == cnames
+alist[[pname]] == anames
+olist[[pname]] == onames
+plist[[pname]] == plos
+get_outcomes(pname, clist[[pname]], alist[[pname]], olist[[pname]], plist[[pname]])
+pname <- "Business Core"
+lres <- get_outcomes(pname, clist[[pname]], alist[[pname]], olist[[pname]], plist[[pname]])
+
+out <- get_output(pname, lres)
+knitr::kable(out[[1]], dig=2)
+print(out[[2]])
+```
+
+Good.
+
+Manual entry of the assessment information is really tedious and the wrapper functions only save a small amount of work. However, it highlights what I need to have in the future. If I can refer to a data frame for course, assessment names, and rubric rows by simply specifying a program name, then this process is entirely automatic from data.

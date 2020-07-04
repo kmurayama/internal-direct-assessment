@@ -4,7 +4,7 @@ mdf$Name <- str_to_title(str_remove(mdf$Name, '^"'))
 
 pttrn.bus345 <- c("^Final Paper$" = "Ethics Final Paper")
 pttrn.bus499 <-
-  c("(^Final Company Paper$)|(^Company Profile$)|(^Final Company Profile$)|(^Course Profile$)" = "Company Profile (Final Paper)",
+  c("(^Final Company Paper$)|(^Company Profile$)|(^Final Company Profile$)|(^Course Profile$)" = "Company Profile",
      "Simulation After-Action Report \\(Also Submitted To Gen Ed For Evidence Of Problem Solving\\)" = "Goventure Aar")
 #    "^Development Plan$" = "Reflection And Development Plan")
 # This affects MGT 300 as well.
