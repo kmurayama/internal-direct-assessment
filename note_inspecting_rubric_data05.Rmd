@@ -357,3 +357,28 @@ print(out[[2]])
 Good.
 
 Manual entry of the assessment information is really tedious and the wrapper functions only save a small amount of work. However, it highlights what I need to have in the future. If I can refer to a data frame for course, assessment names, and rubric rows by simply specifying a program name, then this process is entirely automatic from data.
+
+I might as well standardize the input files even more... Anyway, now I just need to have a full list of those identifiers.
+
+### Thoughts
+Probably I can be more relaxed about preserving the data sources. After all, the important one is D2L outcome data. Other things are more or less "manually handled" anyway.
+
+Part of the reason is those files are really really small (~150 or so rows). If I edit the survey data - I did that anyway for non-rubric data - to have standardized course names and assessment names, I can skip a fair number of steps. Moreover, hard-coded mapping in scripts is no better than manually handled spreadsheet...
+
+Now, rubric rows are different... They are only available in D2L outcome data. 1) it's much larger (>18k rows) and 2) contents are not explicitly entered in survey. Check each from data and edit by substitution make more sense.
+```{r}
+clist <- list("Accounting" = c("ACC 331", "ACC 331", "ACC 441"),
+           "Business Core" = rep("BUS 499", 10))
+alist <- list("Accounting" = c("Exam", "Exam", "Exam"),
+              "Business Core" = c("Annotated Bibliography", "Company Profile",
+                                  "Goventure Aar", "Company Profile",
+                                  "Company Profile", "Ethics Case Paper",
+                                  "Ethics Case Paper", "Goventure Aar",
+                                  "Development Plan"))
+olist <- list("Accounting" = c("ACCOUNTING LO 1", "ACCOUNTING LO 2",
+                               "ACCOUNTING LO 4"),
+           "Business Core" = c("Plo2", "Plo3", "Plo4", "5[a|b|c|d]", "6[e|f|g]",
+                               "Plo7", "Plo8", "Plo9", ".*"))
+plist <- list("Accounting" = c(1, 2, 4),
+              "Business Core" = 2:10)
+```
