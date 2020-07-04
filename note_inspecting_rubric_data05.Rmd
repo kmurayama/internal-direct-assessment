@@ -237,6 +237,7 @@ aname <- "Annotated Bibliography"
 oname <- "Plo2"
 plo <- 2
 get_outcome <- function(cname, aname, oname, plo){
+  if(is.na(cname)){return(NA)}
   tbl3 %>% filter(Course == cname, `Assessment Name` == aname,
                   str_detect(Name, oname)) %>% 
     summarize(mean = mean(Met), n = min(n)) %>% mutate(PLO = plo)
@@ -264,10 +265,10 @@ lres[[i]] <- get_outcome(cnames[i], anames[i], onames[i], plos[i])
 Wrap it.
 ```{r}
 pname <- "Accounting"
-cnames <- c("ACC 331", "ACC 331", "ACC 441")
-anames <- c("Exam", "Exam", "Exam")
-onames <- c("ACCOUNTING LO 1", "ACCOUNTING LO 2", "ACCOUNTING LO 4")
-plos <- c(1, 2, 4)
+cnames <- c("ACC 331", "ACC 331", NA, "ACC 441")
+anames <- c("Exam", "Exam", NA, "Exam")
+onames <- c("ACCOUNTING LO 1", "ACCOUNTING LO 2", NA, "ACCOUNTING LO 4")
+plos <- 1:4
 
 get_outcomes <- function(pname, cnames, anames, onames, plos){
   lres <- list()
@@ -284,6 +285,7 @@ Put the list into a table and a graph.
 lres <- get_outcomes(pname, cnames, anames, onames, plos)
 
 get_output <- function(pname, lres){
+  lres <- lres[!is.na(lres)]
   x <- bind_rows(lres)
   x <- x %>% ungroup() %>% 
     transmute(`Academic Year` = rep(2019, nrow(x)),
@@ -341,10 +343,6 @@ plist <- list("Accounting" = c(1, 2, 4),
 
 
 pname <- "Accounting"
-clist[[pname]] == cnames
-alist[[pname]] == anames
-olist[[pname]] == onames
-plist[[pname]] == plos
 get_outcomes(pname, clist[[pname]], alist[[pname]], olist[[pname]], plist[[pname]])
 pname <- "Business Core"
 lres <- get_outcomes(pname, clist[[pname]], alist[[pname]], olist[[pname]], plist[[pname]])
@@ -367,18 +365,84 @@ Part of the reason is those files are really really small (~150 or so rows). If 
 
 Now, rubric rows are different... They are only available in D2L outcome data. 1) it's much larger (>18k rows) and 2) contents are not explicitly entered in survey. Check each from data and edit by substitution make more sense.
 ```{r}
-clist <- list("Accounting" = c("ACC 331", "ACC 331", "ACC 441"),
-           "Business Core" = rep("BUS 499", 10))
-alist <- list("Accounting" = c("Exam", "Exam", "Exam"),
-              "Business Core" = c("Annotated Bibliography", "Company Profile",
-                                  "Goventure Aar", "Company Profile",
-                                  "Company Profile", "Ethics Case Paper",
-                                  "Ethics Case Paper", "Goventure Aar",
-                                  "Development Plan"))
-olist <- list("Accounting" = c("ACCOUNTING LO 1", "ACCOUNTING LO 2",
-                               "ACCOUNTING LO 4"),
-           "Business Core" = c("Plo2", "Plo3", "Plo4", "5[a|b|c|d]", "6[e|f|g]",
-                               "Plo7", "Plo8", "Plo9", ".*"))
-plist <- list("Accounting" = c(1, 2, 4),
-              "Business Core" = 2:10)
+clist <- list(
+  "Accounting" = c("ACC 331", "ACC 331", NA, "ACC 441"),
+  "Business Core" = c(NA, rep("BUS 499", 10)),
+  "Economics" = c("ECO 302"),
+  "HR" = rep("HR 400", 4),
+  "Management" = rep("BUS 345", 4),
+  "MBA" = c("ACC 711", "ECO 716", "FIN 711", "HR 711", NA, "MKT 711", NA, "BUS 771")
+  )
+alist <- list(
+  "Accounting" = c("Exam", "Exam", NA, "Exam"),
+  "Business Core" = c(NA, "Annotated Bibliography", "Company Profile",
+                      "Goventure Aar", "Company Profile",
+                      "Company Profile", "Ethics Case Paper",
+                      "Ethics Case Paper", "Goventure Aar",
+                      "Development Plan"),
+  "Economics" = c("Exam"),
+  "HR" = c("Paper #1", "Simulation Paper #2", 
+                                  "Simulation Paper 3", "Peer evaluations"),
+  "Management" = c("Ethics Final Paper", "Ethics Final Paper", "Ethics Final Paper", "Ethics Reflection"),
+  "MBA" = c("Managerial Accounting Research", "Exam", "Exam", "Exam", "Exam", "Exam", "Exam", "Exam")
+  )
+olist <- list(
+  "Accounting" = c("ACCOUNTING LO 1", "ACCOUNTING LO 2", NA, "ACCOUNTING LO 4"),
+  "Business Core" = c(NA, "Plo2", "Plo3", "Plo4", "5[a|b|c|d]", "6[e|f|g]",
+                      "Plo7", "Plo8", "Plo9", ".*"),
+  "Economics" = c(".*"),
+  "HR" = c("Organizational Types",
+                                  "(Organizational Types)|(Organizational Strategy)",
+                                  "Hr Law", ".*"),
+  "Management" = c("Plo1", "Plo2", "Plo7", ".*"),
+  "MBA" = rep(".*", 8)
+  )
+plist <- list("Accounting" = 1:4,
+              "Business Core" = 1:10,
+              "Economics" = c(2),
+              "HR" = 1:4,
+              "Management" = 1:4,
+              "MBA" = 1:8
+              )
+```
+
+```{r}
+pname <- "Economics"
+lres <- get_outcomes(pname, clist[[pname]], alist[[pname]], olist[[pname]], plist[[pname]])
+
+out <- get_output(pname, lres)
+knitr::kable(out[[1]], dig=2)
+print(out[[2]])
+
+```
+
+
+```{r}
+pname <- "HR"
+lres <- get_outcomes(pname, clist[[pname]], alist[[pname]], olist[[pname]], plist[[pname]])
+
+out <- get_output(pname, lres)
+knitr::kable(out[[1]], dig=2)
+print(out[[2]])
+```
+
+```{r}
+pname <- "Management"
+lres <- get_outcomes(pname, clist[[pname]], alist[[pname]], olist[[pname]], plist[[pname]])
+
+out <- get_output(pname, lres)
+knitr::kable(out[[1]], dig=2)
+print(out[[2]])
+```
+
+```{r}
+pname <- "MBA"
+lres <- get_outcomes(pname, clist[[pname]], alist[[pname]], olist[[pname]], plist[[pname]])
+out <- get_output(pname, lres)
+knitr::kable(out[[1]], dig=2)
+print(out[[2]])
+
+past %>% filter(Program == "MBA")
+# Internal Formative
+# Threshold differs
 ```
