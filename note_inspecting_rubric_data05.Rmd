@@ -446,3 +446,306 @@ past %>% filter(Program == "MBA")
 # Internal Formative
 # Threshold differs
 ```
+
+
+# Data Edit
+Created a new Excel file with edited input data.
+
+```{r}
+fn <- "data/Assessment Survey Responses.xlsx"
+survey <- read_excel(fn, "Edited")
+head(survey)
+```
+
+I can use the non-rubric data from this, but they are not cleaned yet. Filter them out.
+```{r}
+survey2 <- survey %>%
+  filter(`I graded this assessment using a rubric on D2L.` == "Yes",
+         !Drop)
+head(survey2)
+```
+
+```{r}
+levels(factor(survey2$Course))
+```
+
+
+```{r}
+levels(factor(survey2$`PLO Program`))
+```
+
+
+```{r}
+levels(factor(survey2$PLO))
+```
+
+```{r}
+levels(factor(survey2$Assessment))
+```
+
+Much cleaner!
+
+Also, some notes there.
+```{r}
+levels(factor(survey2$`Follow up`))
+```
+
+After having learned about the data, it was easy to edit the assessment names. The ability to view multiple rows at once helped me as well, taking advantage of comments.
+
+Now, if I use this file, then I can skip `drop-entries` and `clean course` sections of `read.R` and `clean-assessment` of `munge.R`.
+
+## Update Scripts
+Let's give it a try:
+```{r}
+library(tidyverse)
+library(readxl)
+
+## ---- import-d2l ----
+fn <- "data/Rubrics.xlsx"
+df <- read_xlsx(fn) %>%
+  mutate(across(c(RubricId:Name, LevelAchieved), factor),
+         IsScoreOverridden = (IsScoreOverridden == "True"))
+```
+
+
+```{r}
+## ---- import-survey ----
+fn <- "data/Assessment Survey Responses.xlsx"
+survey <- read_excel(fn, "Edited")
+qs <- names(survey)
+#cat(str_sub(qs, 1, 8), sep = "\n")
+# Not unique... yet
+nms <- c("ID" = "ID",
+         "Drop" = "Drop",
+         "Start ti" = "Start",
+         "Completi" = "Complete", 
+         "Email" = "Email",
+         "Name" = "Instructor",
+         "In which" = "Semester",
+         "Course A" = "Course.Section.Original",
+         "Course" = "Course",
+         "Section" = "Section",
+         "What is " = "Assessment.Original",
+         "Assessme" = "Assessment",
+         "Follow u" = "Follow up",
+         "I graded" = "Rubric",
+         "Copy and" = "URL",
+         "Analysis" = "Analysis.Rubric",
+         "Action f" = "Action.Rubric",
+         "What is " = "PLO.Original",
+         "PLO Prog" = "PLO.Program",
+         "PLO" = "PLO",
+         "What is " = "n",
+         "If this " = "np",
+         "Analysis" = "Analysis.Non.Rubric",
+         "Action f" = "Action.Non.Rubric")
+names(survey) <- nms
+
+# Non rubric data are not relevant for D2L output data
+non <- survey %>%
+  filter(Rubric == "No", !Drop) %>%  select(-c(URL:Action.Rubric))
+survey <- survey %>%
+  filter(Rubric == "Yes", !Drop) %>%  select(ID:PLO)
+
+
+```
+
+```{r}
+## ---- extract-rubricid ----
+x <- str_extract_all(survey$URL, "rubricId=[0-9]{6}", simplify=TRUE)
+survey$RubricId <- factor(str_extract_all(x, "[0-9]{6}", simplify=TRUE))
+```
+
+
+```{r}
+tbl <- table(survey$RubricId)
+dups <- tbl[tbl > 1]
+dups
+#res[res$RubricId==names(dups)[1], ]
+## Drop 2, 22
+#res[res$RubricId==names(dups)[2], ]
+## Drop 41 (see the note)
+#res[res$RubricId==names(dups)[3], ]
+## Drop 77 Why resubmit?
+#res[res$RubricId==names(dups)[4], ]
+## Drop 71 ?
+#res[res$RubricId==names(dups)[5], ]
+## Drop 1
+#res[res$RubricId==names(dups)[6], ]
+## Drop 83 ?
+#res[res$RubricId==names(dups)[7], ]
+## Drop 88 ?
+#res[res$RubricId==names(dups)[8], ]
+## Different sections but provided same ID. Actual error. Drop 116.
+#res[res$RubricId==names(dups)[9], ]
+## Drop 37
+#res[res$RubricId==names(dups)[10], ]
+## Drop 93 ?
+#res[res$RubricId==names(dups)[11], ]
+## Drop 92 ?
+
+# Double check comments
+
+id.drop <- c(2, 22, 41, 77, 71, 1, 83, 88, 116, 37, 93, 92)
+df2 <- survey %>% filter(!ID %in% id.drop)
+head(df2)
+```
+
+
+
+```{r}
+## ---- merge ----
+names(df2)
+dim(df)
+mdf <- df %>%
+  left_join(df2 %>%
+              select(RubricId, Instructor, Semester,
+                     Course, Section, Course.Section.Original,
+                     Assessment, Assessment.Original,
+                     Rubric, PLO.Original, PLO.Program, PLO), by="RubricId")
+dim(mdf)
+```
+
+
+```{r}
+## ---- import supplementary ----
+past <- read_excel("data/Assessment Data Main.xlsx", sheet = "Main")
+map <- read_excel("data/Assessment Data Main.xlsx", sheet = "Mapping")
+non <- read_excel("data/Non Rubric Data.xlsx")
+non <- non %>% transmute(
+  Instructor = Name,
+  Semester = `In which semester is this course?`,
+  Course = paste(Program, Course, Section),
+  `Assessment Name` = `What is the name of the assessment you used? (e.g., International Trade Case Study, Final Exam Question 3, etc.)`,
+  `Program`, `PLO Mixed`=PLO,
+  n = `What is the total number of students that completed the assessment tool for your second learning objective?`,
+  pass_n = `If this is an undergraduate assessment, how many students achieved a rubric level of "basic" or scored 70% or better on the assessment?  If this is an MBA formative assessment, how many students s...`,
+  Interpretation = `Analysis/Interpretation of Results for your learning objective: Briefly answer the question, What do your assessment data tell us?`,
+  Action = `Action for improvement: Briefly explain how you will use the assessment results to make improvements to your course or curriculum.2`)
+```
+
+
+Then, `munge`. Get rid of all the assessment name editing codes.
+```{r}
+summary(mdf)
+```
+
+The rest encounters no change because it is all about D2L outcome data, which are not altered by the change in survey results.
+```{r}
+### ---- standardize-achievement ----
+mdf$LevelAchieved <-
+  str_replace_all(mdf$LevelAchieved,
+                  fixed("Unsatisactory (<60%)"), "Unsatisfactory") # Fix a typo
+
+achievements1 <- c("Unsatisfactory", "Developing", "Basic", "Proficient", "Advanced")
+achievements2 <- c("Unacceptable", "Rudimentary", "Fair", "Good", "Excellent")
+names(achievements2) <- achievements1 # Named list as dictionary
+pttrn <- paste(c(achievements1, achievements2), collapse = "|")
+
+x <- levels(mdf$LevelAchieved)
+
+mdf <- mdf %>% mutate(
+  LevelAchieved.Original = LevelAchieved,
+  LevelAchieved = str_extract(mdf$LevelAchieved, pttrn))
+mdf$LevelAchieved <- str_replace_all(mdf$LevelAchieved, achievements2)
+mdf$LevelAchieved <- ordered(mdf$LevelAchieved, levels = achievements2)
+
+summary(mdf$LevelAchieved)
+```
+
+
+```{r}
+## ---- new-variables ----
+mdf <- mdf %>% mutate(
+  Met.UND = case_when(
+    is.na(LevelAchieved) ~ "Missing",
+    LevelAchieved == "Excellent" | LevelAchieved == "Good" |
+      LevelAchieved == "Fair" ~ "Met",
+    LevelAchieved == "Rudimentary" | LevelAchieved == "Unacceptable" ~ "Not",
+    TRUE ~ "Other"),
+  Met.GRD = case_when(
+    is.na(LevelAchieved) ~ "Missing",
+    LevelAchieved == "Excellent" | LevelAchieved == "Good" ~ "Met",
+    LevelAchieved == "Fair" | LevelAchieved == "Rudimentary" |
+      LevelAchieved == "Unacceptable" ~ "Not",
+    TRUE ~ "Other"),
+  Online = grepl("GW", Section),
+  Met.UND.bin = Met.UND == "Met",
+  Met.GRD.bin = Met.GRD == "Met"
+  )
+table(mdf$LevelAchieved, mdf$Met.UND, useNA = "ifany")
+```
+
+## Follow Up to the Updates
+How does the code in analysis change? Shouldn't be much other than variable names...
+
+Re-do the codes in this note above.
+```{r}
+# Edit non-rubric data
+# Change types
+non <- non %>%
+  mutate(Section = factor(Course),
+         Course = factor(str_sub(Course, 1, 7)))
+
+# Clean up Assessment Names
+tbl <- non %>% group_by(Course, `Assessment Name`) %>% summarize(n = n())
+pttrn.bus771 <- c(".*Information Literacy.*" = "Information Literacy",
+                  ".*Exam.*" = "Exam")
+pttrn.bus242 <- c("signature assignment.*" = "Signature Assignment")
+pttrn.bus381 <- c("(.*Final Project.*)|(.*Signature Assignment.*)" = "Signature Assignment")
+pttrn.mgt300.2 <- c("Burt's Bees.*" = "Burt's Bees")
+pttrn <- c(pttrn.bus771, pttrn.bus242, pttrn.bus381, pttrn.mgt300.2)
+
+non <- non %>% mutate(`Assessment Name` = str_replace_all(`Assessment Name`, pttrn))
+table(non$`Assessment Name`)
+
+# Clean up PLOs
+non <- non %>% mutate(`PLO Mixed` =
+                        str_replace_all(str_to_upper(`PLO Mixed`), "\\s\\s", " "))
+# Variable types
+non <- non %>% mutate(Instructor = factor(Instructor),
+                      Semester = factor(Semester),
+                      Program = factor(Program),
+                      Met = pass_n / n)
+summary(non)
+```
+
+Assessment names are problematic. Update this part as well?
+
+## Examine Data
+```{r}
+mdf <- mdf %>% mutate(PLO = paste(PLO.Program, PLO))
+# Undergrad focus for now
+tbl1 <- mdf %>% filter(str_detect(Name, "Major|Minor", negate = TRUE)) %>%
+  group_by(Course, Assessment, Name, PLO.Program, PLO) %>%
+  summarise(Met = mean(Met.UND.bin), n = n())
+tbl1
+```
+
+Non-rubric data are collected at `Section` level and as shares of students who achieved goals. Use the class size as a weight to have the proper aggregation. Moreover, keep the `PLO Mixed` column for identifying apparently-identical assessments (e.g. different parts of exams).
+```{r}
+tbl2 <- non %>%
+  group_by(Course, `Assessment Name`, `PLO Mixed`) %>%
+  summarise(Met = weighted.mean(x = pass_n/n, w = n, na.rm = TRUE),
+            n = sum(n, na.rm = TRUE))
+#non %>% filter(Course == "BUS 381")
+#non %>% filter(Course == "FIN 301")
+tbl2 <- tbl2 %>% rename(Name = `PLO Mixed`)
+tbl3 <- tbl1 %>% bind_rows(tbl2)
+summary(tbl3)
+```
+
+Mappings are incorporated into the survey.
+
+
+```{r}
+
+cname <- "BUS 499"
+aname <- "Annotated Bibliography"
+oname <- "Plo2"
+plo <- 2
+
+tbl3 %>% filter(PLO == "ECO 3, 4, 5")
+```
+
+Need to have non-rubric data be consistent and contains PLO column.
