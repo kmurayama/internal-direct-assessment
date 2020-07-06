@@ -103,7 +103,7 @@ list.plotags <- list("Accounting" = c("ACC 1", "ACC 2", NA, "ACC 4"),
           "Economics" = c("ECO 2"),
           "Human Resources Management" = paste("HRM", 1:4),
           "Management" = c(rep("MGT 1, MGT 2, MGT 3", 3), "MGT 4"),
-          "MBA" = c(paste("MBA", 1:4), NA, paste("MBA", 3))
+          "MBA" = c(paste("MBA", 1:4), NA, paste("MBA", 6:8))
           )
 list.rrows <- list(
   "Accounting" = rep("NA", 4),
@@ -142,7 +142,7 @@ merge_outcomes <- function(lres, program){
   
   y <- past %>%
     filter(Program == program,
-           str_detect(`Assessment Type`, "Internal(Formative)?"),
+           str_detect(`Assessment Type`, "(Internal$)|(Internal Formative)"),
            str_detect(Source, "2020")) %>% 
     select(`Academic Year`, `Learning Objective Number`,
            Outcome, `Sample Size`)
@@ -156,6 +156,31 @@ getmerge_outcomes <- function(program, grad = FALSE){
 }
 
 #getmerge_outcomes("Accounting")
+#past %>% filter(Program == "MBA", str_detect(`Assessment Type`, "(Internal$)|(Internal Formative)"))
+```
+
+```{r}
+make_graph <- function(df.out, program){
+  title <- paste0(program, ", Prevalence of Achievments Over Academic Years, by PLO")
+  caption <- "Grey number represents sample size.\nFor 2019, minimum sample size is used if prevalence is computed from multiple criteria."
+  
+  p <- ggplot(df.out, aes(x = `Academic Year`, y = Outcome,
+                          group = `Learning Objective Number`)) +
+    geom_line(na.rm = TRUE) +
+    geom_point(aes(color = Outcome > 0.7), na.rm = TRUE) +
+    scale_colour_manual(values = setNames(c('blue','red'),c(T, F))) +
+    geom_text(aes(`Academic Year`, 0.5, label = round(`Sample Size`, 0)),
+              alpha = 0.4, na.rm = TRUE) +
+    geom_hline(yintercept = 0.7, color = "red") +
+    scale_y_continuous(labels=scales::percent)
+  p + facet_wrap(vars(`Learning Objective Number`)) +
+    theme_minimal() +
+    labs(title = title, caption = caption) +
+    theme(axis.title = element_blank(),
+          text = element_text(family = "serif"),
+          panel.grid.minor.x = element_blank(),
+          legend.position = "none")
+}
 ```
 
 ## Follow Up
@@ -181,6 +206,11 @@ acc <- getmerge_outcomes("Accounting")
 knitr::kable(acc, dig=2)
 ```
 
+
+```{r}
+make_graph(acc, "Accounting")
+```
+
 ### Business Core
 ```{r}
 bus <- getmerge_outcomes("Business Core")
@@ -188,11 +218,19 @@ knitr::kable(bus, dig=2)
 ```
 
 
+```{r}
+make_graph(bus, "Business Core")
+```
+
 ### Economics
 Only one PLO is identified yet.
 ```{r}
 eco <- getmerge_outcomes("Economics")
 knitr::kable(eco, dig=2)
+```
+
+```{r}
+make_graph(eco, "Economics")
 ```
 
 ### Finance
@@ -205,10 +243,18 @@ knitr::kable(hrm, dig=2)
 ```
 
 
+```{r}
+make_graph(hrm, "Human Resources Management")
+```
+
 ### Management
 ```{r}
 mgt <- getmerge_outcomes("Management")
 knitr::kable(mgt, dig=2)
+```
+
+```{r}
+make_graph(mgt, "Management")
 ```
 
 ### Marketing
@@ -224,4 +270,8 @@ Course for MBA PLO5 was not offered this term.
 ```{r}
 mba <- getmerge_outcomes("MBA", grad = TRUE)
 knitr::kable(mba, dig=2)
+```
+
+```{r}
+make_graph(mba, "MBA")
 ```
