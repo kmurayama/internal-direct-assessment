@@ -137,18 +137,18 @@ merge_outcomes <- function(lres, program){
   lres <- lres[!is.na(lres)] # Missing assessment returns NA
   x <- bind_rows(lres)
   x <- x %>% ungroup() %>%
-    transmute(`Academic Year` = rep(2019, nrow(x)),
-              `Learning Objective Number` = PLO,
+    transmute(`Learning Objective Number` = PLO,
+              `Academic Year` = rep(2019, nrow(x)),
               `Outcome` = Met, `Sample Size` = n )
   
   y <- past %>%
     filter(Program == program,
            str_detect(`Assessment Type`, "(Internal$)|(Internal Formative)"),
            str_detect(Source, "2020")) %>% 
-    select(`Academic Year`, `Learning Objective Number`,
+    select(`Learning Objective Number`, `Academic Year`,
            Outcome, `Sample Size`)
   out <- bind_rows(x, y)
-  out
+  out %>% arrange(`Learning Objective Number`, `Academic Year`)
 }
 
 getmerge_outcomes <- function(program, grad = FALSE){
@@ -202,12 +202,6 @@ I'm so confused. I suppose those files in 2019-20 folder are updated versions. H
 
 ## Outcomes
 ### Accounting
-```{r}
-x <- rowmap %>% filter(Program == "Accounting") %>%
-  discard(~all(is.na(.x))) %>% map_df(~.x) %>% 
-  select(-c(Program, Goal, `Last Checked`))
-knitr::kable(x)
-```
 
 ```{r}
 acc <- getmerge_outcomes("Accounting")
@@ -219,6 +213,13 @@ knitr::kable(acc, dig=2)
 make_graph(acc, "Accounting")
 ```
 
+```{r}
+x <- rowmap %>% filter(Program == "Accounting") %>%
+  discard(~all(is.na(.x))) %>% map_df(~.x) %>% 
+  select(-c(Program, Goal, `Last Checked`))
+knitr::kable(x)
+```
+
 ### Business Core
 ```{r}
 bus <- getmerge_outcomes("Business Core")
@@ -228,6 +229,14 @@ knitr::kable(bus, dig=2)
 
 ```{r}
 make_graph(bus, "Business Core")
+```
+
+
+```{r}
+x <- rowmap %>% filter(Program == "Business Core") %>%
+  discard(~all(is.na(.x))) %>% map_df(~.x) %>% 
+  select(-c(Program, Goal, `Last Checked`))
+knitr::kable(x)
 ```
 
 ### Economics
@@ -255,6 +264,14 @@ knitr::kable(hrm, dig=2)
 make_graph(hrm, "Human Resources Management")
 ```
 
+
+```{r}
+x <- rowmap %>% filter(Program == "Human Resources Management") %>%
+  discard(~all(is.na(.x))) %>% map_df(~.x) %>% 
+  select(-c(Program, Goal, `Last Checked`))
+knitr::kable(x)
+```
+
 ### Management
 ```{r}
 mgt <- getmerge_outcomes("Management")
@@ -263,6 +280,13 @@ knitr::kable(mgt, dig=2)
 
 ```{r}
 make_graph(mgt, "Management")
+```
+
+```{r}
+x <- rowmap %>% filter(Program == "Management") %>%
+  discard(~all(is.na(.x))) %>% map_df(~.x) %>% 
+  select(-c(Program, Goal, `Last Checked`))
+knitr::kable(x)
 ```
 
 ### Marketing
@@ -275,6 +299,8 @@ Ask Rich?
 
 ### MBA
 Course for MBA PLO5 was not offered this term.
+
+
 ```{r}
 mba <- getmerge_outcomes("MBA", grad = TRUE)
 knitr::kable(mba, dig=2)
@@ -283,3 +309,13 @@ knitr::kable(mba, dig=2)
 ```{r}
 make_graph(mba, "MBA")
 ```
+
+```{r}
+x <- rowmap %>% filter(Program == "MBA") %>%
+  discard(~all(is.na(.x))) %>% map_df(~.x) %>% 
+  select(-c(Program, Goal, `Last Checked`))
+knitr::kable(x)
+```
+
+
+# Next
