@@ -55,3 +55,6 @@ mdf <- mdf %>% mutate(
   Met.UND.bin = Met.UND == "Met",
   Met.GRD.bin = Met.GRD == "Met"
   )
+
+# ---- clean-row-map ----
+rowmap <- rowmap %>% mutate(across(where(is.character), na_if, "NA"))

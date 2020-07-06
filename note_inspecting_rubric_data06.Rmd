@@ -30,6 +30,7 @@ Import data. Codes are externalized for reuse. As a reference:
 - `mdf` or main data frame contains the rubric outcome data merged with the course/assessment information gathered from the survey. Data are cleaned up.
 - `non` or non-rubric data frame is separated from the same data source as the rubric information of `mdf`. It contains the instructor's assessments of outcomes at course level. Data are cleaned up.
 - `past` data frame contains the assessment outcome data from the past.
+- `rowmap` data frame summarizes the mapping between PLOs and rubric rows.
 ```{r}
 source('read.R')
 source('munge.R')
@@ -201,6 +202,13 @@ I'm so confused. I suppose those files in 2019-20 folder are updated versions. H
 
 ## Outcomes
 ### Accounting
+```{r}
+x <- rowmap %>% filter(Program == "Accounting") %>%
+  discard(~all(is.na(.x))) %>% map_df(~.x) %>% 
+  select(-c(Program, Goal, `Last Checked`))
+knitr::kable(x)
+```
+
 ```{r}
 acc <- getmerge_outcomes("Accounting")
 knitr::kable(acc, dig=2)
