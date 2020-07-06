@@ -1,0 +1,150 @@
+---
+title: "Note to Inspect Rubric Data 6"
+date: 7/6/2020
+output:
+  html_notebook:
+    toc: yes
+    toc_float:
+      collapsed: yes
+    code_folding: hide
+  html_document:
+    toc: yes
+    toc_float:
+      collapsed: no
+    df_print: paged
+    code_folding: hide
+---
+
+```{r, echo=FALSE, include=FALSE}
+#knitr::opts_chunk$set(message = FALSE, warning = FALSE)
+library(tidyverse)
+options(dplyr.summarise.inform=FALSE) 
+library(readxl)
+```
+
+# Objective
+Data are mostly cleaned and organized; PLOs are largely matched for Standard 4 reporting; yet, there are several critically missing pieces. 1) Present the outcomes for those which are present and 2) sort out the current situation and follow up with faculty/staff for missing information (i.e. missing data, assessments, and mappings).
+
+# Set up
+Import data. Codes are externalized for reuse. As a reference:
+- `mdf` or main data frame contains the rubric outcome data merged with the course/assessment information gathered from the survey. Data are cleaned up.
+- `non` or non-rubric data frame is separated from the same data source as the rubric information of `mdf`. It contains the instructor's assessments of outcomes at course level. Data are cleaned up.
+- `past` data frame contains the assessment outcome data from the past.
+```{r}
+source('read.R')
+source('munge.R')
+```
+
+Those scripts have been updated to use the *edited* version of the survey result data. See Note 5 for details.
+
+Given that change, the Notebooks 1-5 are completely outdated.
+
+# PLO Measures for Standard 4
+
+## Overview
+For Standard 4, we only need a rather small subset of the assessments available. Produce the summary of outcomes in the context of historical changes. 
+
+- ACBSP requires 3-5 data points, so make sure to have sufficient numbers.
+- ACBSP requires graphs with sample sizes.
+- Nuventive requires numbers. Produce data tables along with the graphs.
+
+Once Standard 4 is done, we can discuss weakness/shortcomings and strength/improvements in our program, then look at other courses - including the ones at an earlier stage of each program - to find *opportunities for improvement* and *close the loop*. That is, we can get to **Standard 6** analysis.
+
+## Summarize Outcomes
+Rubric outcome data are collected at individual level. Take average over `Course` level for each assignment. All the inconsistencies have been dealt with.
+```{r}
+# Undergrad focus for now
+tbl1 <- mdf %>% filter(str_detect(Name, "Major|Minor", negate = TRUE)) %>%
+  group_by(Course, Assessment, Name, PLO) %>%
+  summarise(Met = mean(Met.UND.bin), n = n())
+```
+
+Non-rubric data are collected at `Section` level and as shares of students who achieved goals. Use the class size as a weight to have the proper aggregation. Moreover, keep the `PLO Mixed` column for identifying apparently-identical assessments (e.g. different parts of exams).
+```{r}
+tbl2 <- non %>%
+  group_by(Course, Assessment, PLO) %>%
+  summarise(Met = weighted.mean(x = np/n, w = n, na.rm = TRUE),
+            n = sum(n, na.rm = TRUE), Name = "NA")
+```
+
+Now the outcomes are summarized in a compatible way for both rubric-based and non rubric-based assessments. Combine them:
+```{r}
+tbl3 <- tbl1 %>% bind_rows(tbl2)
+head(tbl3)
+```
+
+## Examine
+```{r}
+get_outcome <- function(plotag, rrow, program, plo){
+  if(is.na(plotag)){return(NA)}
+  tbl3 %>% filter(PLO == plotag, str_detect(Name, rrow)) %>% ungroup() %>% 
+    summarize(Met = mean(Met), n = min(n)) %>%
+    mutate(Program = program, PLO = plo)
+}
+get_outcome(plotag = "BUS 5, BUS 6", rrow = "5[a|b|c|d]",
+            program = "Business Core", plo = 5)
+```
+
+```{r}
+#levels(factor(tbl3$PLO))
+list.plotags <- list("Accounting" = c("ACC 1", "ACC 2", NA, "ACC 4"),
+          "Business Core" = c(NA, "BUS 2", "BUS 3", "BUS 4, BUS 9",
+                              "BUS 5, BUS 6", "BUS 5, BUS 6",
+                              "BUS 7, BUS 8", "BUS 7, BUS 8", "BUS 4, BUS 9",
+                              "BUS 10"),
+          "Economics" = c("ECO 2"),
+          "HR" = paste("HR", 1:4),
+          "Management" = c(rep("MGT 1, MGT 2, MGT 3", 3), "MGT 4"),
+          "MBA" = paste("MBA", 1:8)
+          )
+list.rrows <- list(
+  "Accounting" = rep("NA", 4),
+  "Business Core" = c(NA, "Plo2", "Plo3", "Plo4", "5[a|b|c|d]", "6[e|f|g]",
+                      "Plo7", "Plo8", "Plo9", ".*"),
+  "Economics" = c(".*"),
+  "HR" = c("Organizational Types",
+           "(Organizational Types)|(Organizational Strategy)",
+           "Hr Law", ".*"),
+  "Management" = c("Plo1", "Plo5", "Plo7", ".*"),
+  "MBA" = rep(".*", 8)
+  )
+# MIS, MKT
+```
+
+```{r}
+get_outcomes <- function(program){
+  # Wrapper to return a combined results for each program
+  lres <- list()
+  plotags <- list.plotags[[program]]
+  rrows <- list.rrows[[program]]
+  for(i in 1:length(plotags)){
+    lres[[i]] <- get_outcome(plotags[i], rrows[i], program, i)
+  }
+  lres
+}
+
+merge_outcomes <- function(lres){
+  # Wrapper function to merge with the historical assessment results
+  lres <- lres[!is.na(lres)] # Missing assessment returns NA
+  x <- bind_rows(lres)
+  x <- x %>% ungroup() %>%
+    transmute(`Academic Year` = rep(2019, nrow(x)),
+              `Learning Objective Number` = PLO,
+              `Outcome` = Met, `Sample Size` = n )
+  
+  y <- past %>%
+    filter(Program == pname, `Assessment Type` == "Internal",
+           str_detect(Source, "2020")) %>% 
+    select(`Academic Year`, `Learning Objective Number`,
+           Outcome, `Sample Size`)
+  out <- bind_rows(x, y)
+  out
+}
+
+getmerge_outcomes <- function(program){
+  lres <- get_outcomes(program)
+  merge_outcomes(lres)
+}
+
+getmerge_outcomes("Accounting")
+```

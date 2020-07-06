@@ -1,17 +1,17 @@
 ---
 title: "Note to Inspect Rubric Data 5"
-date: 7/3/2020
+date: 7/6/2020
 output:
-  html_notebook:
-    toc: yes
-    toc_float:
-      collapsed: yes
-    code_folding: hide
   html_document:
     toc: yes
     toc_float:
       collapsed: no
     df_print: paged
+    code_folding: hide
+  html_notebook:
+    toc: yes
+    toc_float:
+      collapsed: yes
     code_folding: hide
 ---
 
@@ -838,4 +838,32 @@ getmerge_outcomes <- function(program){
 getmerge_outcomes("Accounting")
 ```
 
+```{r}
+getmerge_outcomes("Business Core")
 
+```
+
+
+```{r}
+getmerge_outcomes("Economics")
+```
+
+```{r}
+getmerge_outcomes("HR")
+```
+
+Clearly, not working. The inconsistency of "HR" vs "HRM" is confusing.
+
+```{r}
+getmerge_outcomes("Management")
+```
+
+
+```{r}
+getmerge_outcomes("MBA")
+```
+
+Appear to be working (mostly), but I know it needs to use grad level objective.
+
+# Next
+Much update to initial scripts. Wrap it up here and update them.

@@ -1,115 +1,62 @@
-# read.R
-# Read data files, clean them up, and merge them for the analysis.
-# This is the shared component for notebooks (note_inspecting_rubric_data##.Rmd)
-
-
-library(tidyverse)
-library(readxl)
-
-# ---- test-a ----
-1 + 1
-x = rnorm(10)
-
 ## ---- import-d2l ----
 fn <- "data/Rubrics.xlsx"
 df <- read_xlsx(fn) %>%
   mutate(across(c(RubricId:Name, LevelAchieved), factor),
          IsScoreOverridden = (IsScoreOverridden == "True"))
-head(df)
 
 ## ---- import-survey ----
-fn <- "data/Tracking of Assessment of Student Learning Outcomes Data Collection.xlsx"
-res <- read_excel(fn, sheet = "Response0602")
-res <- res[res$`I graded this assessment using a rubric on D2L.` == "Yes", ]
-res <- res[1:12]
+fn <- "data/Assessment Survey Responses.xlsx"
+survey <- read_excel(fn, "Edited")
+qs <- names(survey)
+nms <- c("ID" = "ID",
+         "Drop" = "Drop",
+         "Start ti" = "Start",
+         "Completi" = "Complete", 
+         "Email" = "Email",
+         "Name" = "Instructor",
+         "In which" = "Semester",
+         "Course A" = "Course.Section.Original",
+         "Course" = "Course",
+         "Section" = "Section",
+         "What is " = "Assessment.Original",
+         "Assessme" = "Assessment",
+         "Follow u" = "Follow up",
+         "I graded" = "Rubric",
+         "Copy and" = "URL",
+         "Analysis" = "Analysis.Rubric",
+         "Action f" = "Action.Rubric",
+         "What is " = "PLO.Original",
+         "PLO" = "PLO",
+         "What is " = "n.original",
+         "n" = "n",
+         "If this " = "np.original",
+         "np" = "np",
+         "Analysis" = "Analysis.Non.Rubric",
+         "Action f" = "Action.Non.Rubric")
+names(survey) <- nms
 
-qs <- names(res)
-responder.info <- c("ID", "Started", "Completed", "Email", "Name")
-course.info <- c("Semester", "Course")
-assessment.info <- c("Assessment Name", "Rubric Usage")
-rubric.info <- c("URL", "Intrepretation", "Action for Improvement")
-names(res) <- c(responder.info, course.info, assessment.info, rubric.info)
-
-## ---- drop-entries ----
-res <- res[res$ID != 1 & res$ID != 2, ] # Drop early error entries
-
-assess.name <- res[res$ID == 41, c("Assessment Name", "URL")] # Keep double entry 
-anames <- str_split(assess.name$`Assessment Name`, ",", simplify = TRUE)
-urls <- str_split(assess.name$URL, "Burts", simplify = TRUE)
-
-x <- res[res$ID == 41, ]
-x$ID <- nrow(res)
-x[c("Assessment Name", "URL")] <- list(anames[2], urls[2])
-res[res$ID == 41, c("Assessment Name", "URL")] <- list(anames[1], urls[1])
-res[res$ID == 159, ] <- x # Replace Ed's entry with the modified Neeley's
-
-## ---- clean-course ----
-x <- res$Course
-x <- str_replace(x, "GW[I|!]", "GW1") # Replace some typos
-x <- str_replace(x, "GS1", "GW1") # Replace some typos
-x <- str_remove(x, "[0-9]{4,}") # Remove leading time stamp
-x <- str_replace(x, "BS[U]?", "BUS") # Replace less critical typo
-x <- str_replace(x, "-01", "-001") # Replace less critical typo
-
-cid1 <- str_match(x, "[A-Z]{2,3}") # Extract course program (e.g. BUS, MKT)
-cid2 <- str_extract_all(x, "(CD|G[WS])?[0-9]{1,3}", simplify = TRUE) # Extract
-res$Course <- paste(cid1, cid2[, 1]) # Then merge for course id e.g. MGT 300
-res$Section <- paste(cid1, cid2[, 1], cid2[, 2]) # Likewise, e.g. MGT 300 001
+# Non rubric data are not relevant for D2L output data
+non <- survey %>%
+  filter(Rubric == "No", !Drop) %>%  select(-c(URL:Action.Rubric))
+survey <- survey %>%
+  filter(Rubric == "Yes", !Drop) %>%  select(ID:PLO)
 
 ## ---- extract-rubricid ----
-x <- str_extract_all(res$URL, "rubricId=[0-9]{6}", simplify=TRUE)
-res$RubricId <- factor(str_extract_all(x, "[0-9]{6}", simplify=TRUE))
+x <- str_extract_all(survey$URL, "rubricId=[0-9]{6}", simplify=TRUE)
+survey$RubricId <- factor(str_extract_all(x, "[0-9]{6}", simplify=TRUE))
 
-#tbl <- table(res$RubricId)
-#dups <- tbl[tbl > 1]
-#res[res$RubricId==names(dups)[1], ]
-## Drop 2, 22
-#res[res$RubricId==names(dups)[2], ]
-## Drop 41 (see the note)
-#res[res$RubricId==names(dups)[3], ]
-## Drop 77 Why resubmit?
-#res[res$RubricId==names(dups)[4], ]
-## Drop 71 ?
-#res[res$RubricId==names(dups)[5], ]
-## Drop 1
-#res[res$RubricId==names(dups)[6], ]
-## Drop 83 ?
-#res[res$RubricId==names(dups)[7], ]
-## Drop 88 ?
-#res[res$RubricId==names(dups)[8], ]
-## Different sections but provided same ID. Actual error. Drop 116.
-#res[res$RubricId==names(dups)[9], ]
-## Drop 37
-#res[res$RubricId==names(dups)[10], ]
-## Drop 93 ?
-#res[res$RubricId==names(dups)[11], ]
-## Drop 92 ?
+## ---- drop-duplicates ----
+id.drop <- c(22, 66, 65, 61, 62, 114, 37, 64, 63)
+df2 <- survey %>% filter(!ID %in% id.drop)
 
-id.drop <- c(2, 22, 41, 77, 71, 1, 83, 88, 116, 37, 93, 92)
-df2 <- res %>% filter(!ID %in% id.drop)
-
-df2.trim <- res %>%
-  mutate(across(c(ID, Email:Semester, Section:Course), factor) )
 
 ## ---- merge ----
-dim(df)
 mdf <- df %>%
-  left_join(df2.trim %>% select(RubricId, Instructor = Name, Course,
-                                `Assessment Name`, Semester,
-                                Section, Course), by="RubricId")
-dim(mdf)
+  left_join(df2 %>%
+              select(RubricId, Instructor, Semester,
+                     Course, Section, Course.Section.Original,
+                     Assessment, Assessment.Original,
+                     Rubric, PLO.Original, PLO), by="RubricId")
 
 ## ---- import supplementary ----
 past <- read_excel("data/Assessment Data Main.xlsx", sheet = "Main")
-map <- read_excel("data/Assessment Data Main.xlsx", sheet = "Mapping")
-non <- read_excel("data/Non Rubric Data.xlsx")
-non <- non %>% transmute(
-  Instructor = Name,
-  Semester = `In which semester is this course?`,
-  Course = paste(Program, Course, Section),
-  `Assessment Name` = `What is the name of the assessment you used? (e.g., International Trade Case Study, Final Exam Question 3, etc.)`,
-  `Program`, `PLO Mixed`=PLO,
-  n = `What is the total number of students that completed the assessment tool for your second learning objective?`,
-  pass_n = `If this is an undergraduate assessment, how many students achieved a rubric level of "basic" or scored 70% or better on the assessment?  If this is an MBA formative assessment, how many students s...`,
-  Interpretation = `Analysis/Interpretation of Results for your learning objective: Briefly answer the question, What do your assessment data tell us?`,
-  Action = `Action for improvement: Briefly explain how you will use the assessment results to make improvements to your course or curriculum.2`)
