@@ -704,7 +704,7 @@ Non-rubric data are collected at `Section` level and as shares of students who a
 tbl2 <- non %>%
   group_by(Course, Assessment, PLO) %>%
   summarise(Met = weighted.mean(x = np/n, w = n, na.rm = TRUE),
-            n = sum(n, na.rm = TRUE))
+            n = sum(n, na.rm = TRUE), Name = "NA")
 tbl3 <- tbl1 %>% bind_rows(tbl2)
 summary(tbl3)
 ```
@@ -722,3 +722,138 @@ tbl3 %>% filter(PLO == "ACC 4")
 
 Need to have non-rubric data be consistent and contains PLO column. ...Done.
 Retrospectively edited the source data file and updated the codes above.
+
+## Outcomes?
+Modify the function:
+``` r
+cname <- "BUS 499"
+aname <- "Annotated Bibliography"
+oname <- "Plo2"
+plo <- 2
+tbl3 %>% filter(Course == cname, `Assessment Name` == aname,
+                str_detect(Name, oname)) %>% 
+  summarize(mean = mean(Met), n = min(n)) %>% mutate(PLO = plo)
+```
+
+I *can* summarize by group.
+```{r}
+tbl3 %>% group_by(PLO) %>% 
+  summarize(mean = mean(Met), n = min(n))
+
+```
+
+Really cool. But there's still a problem. Not all the assessments use all the rubric rows. I need to select rubric rows accordingly. (Those PLO markers are placed in the survey data, where each row is at the assessment level.)
+
+```{r}
+table(tbl3$PLO)
+tbl3 %>% filter(PLO == "ACC 1", str_detect(Name, "NA"))
+tbl3 %>% filter(PLO == "ACC 2", str_detect(Name, "NA"))
+tbl3 %>% filter(PLO == "BUS 2", str_detect(Name, "Plo2"))
+tbl3 %>% filter(PLO == "BUS 5, BUS 6", str_detect(Name, "5[a|b|c|d]"))
+tbl3 %>% filter(PLO == "BUS 5, BUS 6", str_detect(Name, "6[e|f|g]")) %>% 
+  summarize(Met = mean(Met), n = min(n)) %>% mutate(PLO = "BUS 6")
+```
+
+```{r}
+get_outcome <- function(plo, rrow){
+  if(is.na(plo)){return(NA)}
+  tbl3 %>% filter(PLO == plo, str_detect(Name, rrow)) %>% 
+    summarize(Met = mean(Met), n = min(n)) %>% mutate(PLO = plo)
+}
+get_outcome(plo = "BUS 5, BUS 6", rrow = "5[a|b|c|d]")
+
+```
+The rest follows.
+
+```{r}
+levels(factor(tbl3$PLO))
+plos <- list("Accounting" = c("ACC 1", "ACC 2", NA, "ACC 4"),
+          "Business Core" = c(NA, "BUS 2", "BUS 3", "BUS 4, BUS 9",
+                              "BUS 5, BUS 6", "BUS 5, BUS 6",
+                              "BUS 7, BUS 8", "BUS 7, BUS 8", "BUS 4, BUS 9",
+                              "BUS 10"),
+          "Economics" = c("ECO 2"),
+          "HR" = paste("HR", 1:4),
+          "MBA" = paste("MBA", 1:8)
+          )
+rrows <- list(
+  "Accounting" = rep("NA", 4),
+  "Business Core" = c(NA, "Plo2", "Plo3", "Plo4", "5[a|b|c|d]", "6[e|f|g]",
+                      "Plo7", "Plo8", "Plo9", ".*"),
+  "Economics" = c(".*"),
+  "HR" = c("Organizational Types",
+           "(Organizational Types)|(Organizational Strategy)",
+           "Hr Law", ".*"),
+  "MBA" = rep(".*", 8)
+  )
+# "Management" = c("Plo1", "Plo2", "Plo7", ".*"), ?
+# MIS, MKT
+```
+
+```{r}
+is.na(plos[["Accounting"]][3])
+get_outcome(plos[[1]][1], rrows[[1]][1])
+get_outcome(plos[[1]][2], rrows[[1]][2])
+get_outcome(plos[[1]][3], rrows[[1]][3])
+get_outcome(plos[[1]][4], rrows[[1]][4])
+get_outcome(plos[[3]][1], rrows[[3]][1])
+
+
+```
+
+
+```{r}
+get_outcomes <- function(plos, rrows){
+  lres <- list()
+  for(i in 1:length(plos)){
+    lres[[i]] <- get_outcome(plos[i], rrows[i])
+  }
+  lres
+}
+pname <- "Accounting"
+get_outcomes(plos[[pname]], rrows[[pname]])
+pname <- "Business Core"
+get_outcomes(plos[[pname]], rrows[[pname]])
+pname <- "Economics"
+get_outcomes(plos[[pname]], rrows[[pname]])
+```
+
+
+```{r}
+get_output <- function(pname, lres){
+  lres <- lres[!is.na(lres)]
+  x <- bind_rows(lres)
+  x <- x %>% ungroup() %>% 
+    transmute(`Academic Year` = rep(2019, nrow(x)),
+              `Learning Objective Number` = as.numeric(PLO),
+              `Outcome` = mean, `Sample Size` = n )
+  y <- past %>%
+    filter(Program == pname, `Assessment Type` == "Internal",
+           str_detect(Source, "2020")) %>% 
+    select(`Academic Year`, `Learning Objective Number`, Outcome, `Sample Size`)
+  out <- bind_rows(x, y)
+  
+  title <- paste0(pname, ", Prevalence of Achievments Over Academic Years, by PLO")
+  caption <- "Grey number represents sample size.\nFor 2019, minimum sample size is used if prevalence is computed from multiple criteria."
+  p <- ggplot(out,
+         aes(`Academic Year`, Outcome, group = `Learning Objective Number`)) +
+    geom_line(na.rm = TRUE) +
+    geom_point(aes(color = Outcome > 0.7), na.rm = TRUE) +
+    scale_colour_manual(values = setNames(c('blue','red'),c(T, F))) +
+    geom_text(aes(`Academic Year`, 0.5, label = round(`Sample Size`, 0)),
+              alpha = 0.4, na.rm = TRUE) +
+    geom_hline(yintercept = 0.7, color = "red") +
+    scale_y_continuous(labels=scales::percent) +
+    facet_wrap(vars(`Learning Objective Number`)) +
+    theme_minimal() +
+    labs(title = title, caption = caption) +
+    theme(axis.title = element_blank(),
+          text = element_text(family = "serif"),
+          panel.grid.minor.x = element_blank(),
+          legend.position = "none")
+    
+  list(out, p)
+}
+```
+
+
