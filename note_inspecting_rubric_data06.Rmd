@@ -292,10 +292,21 @@ knitr::kable(x)
 ### Marketing
 All the assessment from MKT 401. Eric Freeman has one rubric outcome.
 ```{r}
-tbl3 %>% filter(Course == "MKT 401") %>% ungroup() %>% select(Assessment, Name)
+tbl3 %>% filter(Course == "MKT 401") %>% ungroup() %>% select(Assessment, Name, n) %>% knitr::kable()
 ```
 
-Ask Rich?
+```{r}
+mdf %>% filter(Course == "MKT 401") %>% group_by(Section, Name) %>% summarise(n = n())
+```
+
+```{r}
+x <- rowmap %>% filter(Program == "Marketing") %>%
+  discard(~all(is.na(.x))) %>% map_df(~.x) %>% 
+  select(-c(Program, Goal, `Last Checked`))
+knitr::kable(x)
+```
+
+- [x] Ask Rich?
 
 ### MBA
 Course for MBA PLO5 was not offered this term.
