@@ -1,0 +1,482 @@
+---
+title: Note to Inspect Rubric Data 1
+author: Kentaro Murayama
+date: 2020/6/23
+output:
+  html_document:
+    code_folding: hide
+    toc: yes
+    toc_depth: 4
+    toc_float:
+      collapsed: false
+    number_sections: true
+    theme: paper
+---
+
+```{r, echo=FALSE, include=FALSE}
+#knitr::opts_chunk$set(message = FALSE, warning = FALSE)
+library(tidyverse)
+library(readxl)
+```
+
+# Introduction
+Not much to explain. I have the data now! Finally! Let's look at it.
+
+# Import Data
+Import the data. Jon notified me that D2L has changed its specification recently, so that he can no longer retrieve the data in one go. He had to submit multiple queries (I think?) and put them together. He tried to mimic the format I had for the sample a while ago.
+```{r}
+fn <- "data/Rubrics.xlsx"
+df <- read_xlsx(fn)
+head(df)
+```
+
+Looks good. Are the variable types recognized appropriately?
+```{r}
+sapply(df, class)
+```
+
+Mostly. Let's change IDs into categorical. Level Achieved as well. Then, summarize the dataset.
+```{r}
+df <- df %>% mutate(across(c(RubricId:UserId, LevelAchieved), factor),
+                    IsScoreOverridden = (IsScoreOverridden == "True"))
+summary(df)
+```
+
+How many rubrics, students, levels?
+```{r}
+df %>% summarize(across(where(is.factor), nlevels))
+```
+
+Like before, I need to clean up levels. Take a look:
+```{r}
+levels(df$LevelAchieved)
+```
+
+It's "contaminated" by survey questions like majors. Actual achievement levels have additional notes like (65/100), but relatively easy to fix: There's no contradicting values (e.g. Proficient 85% vs Proficient 90%). Just get rid of these notes. There are a few that I don't understand "Level 2", "New Level", etc. I need to check the actual rubric for those. For now, just separate them form the main data frame.
+
+Now, I can filter out rubrics by examining the correspondence with those non-achievement levels like last time. Or, this time, I can merge the data with the course-rubric data from survey first then filter. If individual rubrics are mixed with non-achievement levels (likely), I'll want to handle them at analysis stage...
+
+Import the survey data.
+```{r}
+fn <- "data/Tracking of Assessment of Student Learning Outcomes Data Collection.xlsx"
+print("Excel names are:")
+excel_sheets(fn)
+res <- read_excel(fn, sheet = "Response0602")
+```
+
+As common in survey data, column names are a bit messy.
+```{r}
+names(res)
+```
+
+Rename columns. (Ignore non-rubric columns. The data needed to be corrected manually. The output is stored in another file.)
+```{r}
+res <- res[1:12]
+qs <- names(res)
+responder.info <- c("ID", "Started", "Completed", "Email", "Name")
+course.info <- c("Semester", "Course")
+assessment.info <- c("Assessment Name", "Rubric Usage")
+rubric.info <- c("URL", "Intrepretation", "Action for Improvement")
+names(res)[1:12] <- c(responder.info, course.info, assessment.info, rubric.info)
+head(res)
+```
+
+Alright. Convert the types.
+```{r}
+sapply(res, class)
+```
+
+`ID` and `Email` - `Semester` are multiple choice questions, while `Course` and `Assessment Name` are open ended. Before converting column types, let's clean up the data.
+
+First, select rows with rubric usage.
+```{r}
+res <- res[res$`Rubric Usage` == "Yes", ]
+dim(res)
+```
+
+Then inspect those two columns.
+
+Course and session? From non-rubric data, I know typos and inconsistency are very common. (Side note: I updated questions in a copy of the survey. **Don't forget to update the questions before the next semester.**)
+```{r}
+levels(as.factor(res$`Course`))
+```
+
+- Retrieve program name. Three letter identifier (mostly).
+- Retrieve course number. Three digits.
+- Retrieve section ids. Three digits/letters following *some* separator (hyphen or space)
+- Watch out for random tab instead of space.
+
+Some experiments:
+```{r}
+x <- levels(as.factor(res$Course))
+x <- str_replace(x, "GW[I|!]", "GW1") # Replace some typos
+x <- str_remove(x, "[0-9]{4,}") # Remove leading time stamp
+cid1 <- str_match(x, "[A-Z]{2,3}")
+cid2 <- str_extract_all(x, "(CD|G[WS])?[0-9]{1,3}", simplify = TRUE)
+cbind(x, cid1, cid2)
+```
+
+Apply to the data.
+```{r}
+x <- res$Course
+
+x <- str_replace(x, "GW[I|!]", "GW1") # Replace some typos
+x <- str_remove(x, "[0-9]{4,}") # Remove leading time stamp
+cid1 <- str_match(x, "[A-Z]{2,3}")
+cid2 <- str_extract_all(x, "(CD|G[WS])?[0-9]{1,3}", simplify = TRUE)
+
+res.names <- names(res)
+res <- cbind(res, cid1, cid2)
+names(res) <- c(res.names, paste0("CID", 1:3))
+
+res$CID1 <- str_replace(res$CID1, "BS[U]?", "BUS") # Replace less critical typo
+res$CID3 <- str_replace(res$CID3, "^01", "001") # Replace less critical typo
+```
+
+Next, assessment name. Convert and check category numbers.
+```{r}
+x1 <- levels(as.factor(res$`Assessment Name`))
+x2 <- str_to_title(res$`Assessment Name`)
+x2 <- levels(as.factor(x2))
+length(x1); length(x2)
+x2
+```
+
+Good enough. I can fix the rest manually. Proceed for now.
+```{r}
+res$`Assessment Name` <- str_to_title(res$`Assessment Name`)
+```
+
+
+Finally, change the column types.
+```{r}
+sapply(res, class)
+res <- res %>% select(-Course) %>% mutate(across(c(ID, Email:Semester, starts_with("CID")), factor))
+summary(res)
+```
+
+One more thing. I need an identifier for merge. Extract rubric ID.
+```{r}
+str_extract_all(res$URL, "rubricId=[0-9]{6}", simplify=TRUE)
+```
+
+26 and 94?
+```{r}
+res[c(26, 94), "ID"]
+```
+
+- ID 41 > Neeley's entry. Just split it.
+- ID 159 > Ed's entry. It was an error entry. Drop it.
+
+```{r}
+res[94, ] <- res[26, ]
+```
+
+Neeley entered two assessment names as well.
+```{r}
+anames <- str_split(res[94, "Assessment Name"], ",", simplify = TRUE)
+urls <- str_split(res[94, "URL"], "Burts", simplify = TRUE)
+
+res[26, c("Assessment Name", "URL")] <- c(anames[1], urls[1])
+res[94, c("Assessment Name", "URL")] <- c(anames[2], urls[2])
+res[c(26, 94), ]
+```
+
+```{r}
+str_extract_all(res$URL, "rubricId=[0-9]{6}", simplify=TRUE)
+```
+
+Then, place the Rubric ID.
+```{r}
+x <- str_extract_all(res$URL, "rubricId=[0-9]{6}", simplify=TRUE)
+res$RubricId <- factor(str_extract_all(x, "[0-9]{6}", simplify=TRUE))
+```
+
+Finally, compare rubric IDs. Which of IDs in the D2L data are in survey?
+```{r}
+levels(df$RubricId) %in% levels(res$RubricId)
+```
+
+All of them.
+
+What about the other way? (i.e. In survey, but not in the D2L data)
+```{r}
+levels(res$RubricId) %in% levels(df$RubricId)
+```
+
+Hmm. Several of them...
+```{r}
+(outcome.miss <- levels(res$RubricId)[!levels(res$RubricId) %in% levels(df$RubricId)])
+```
+
+```{r}
+res[res$RubricId %in% outcome.miss, c("ID", "Name", "CID1", "Assessment Name")]
+```
+
+Keep these in mind.
+
+Are the rubric IDs unique?
+```{r}
+tbl <- table(res$RubricId)
+dups <- tbl[tbl > 1]
+dups
+```
+```{r}
+res[res$RubricId %in% names(dups), ]
+```
+It's getting a bit obnoxious. I can fix these later, even manually. As long as each rubric identify course uniquely, I'm good to go for now.
+
+```{r}
+res[res$RubricId==names(dups)[1], ]
+# Drop 2, 22
+res[res$RubricId==names(dups)[2], ]
+# Drop 41 (see the note)
+res[res$RubricId==names(dups)[3], ]
+# Drop 77 Why resubmit?
+res[res$RubricId==names(dups)[4], ]
+# Drop 71 ?
+res[res$RubricId==names(dups)[5], ]
+# Drop 1
+res[res$RubricId==names(dups)[6], ]
+# Drop 83 ?
+res[res$RubricId==names(dups)[7], ]
+# Drop 88 ?
+res[res$RubricId==names(dups)[8], ]
+# Different sections but provided same ID. Actual error. Drop 116.
+res[res$RubricId==names(dups)[9], ]
+# Drop 37
+res[res$RubricId==names(dups)[10], ]
+# Drop 93 ?
+res[res$RubricId==names(dups)[11], ]
+# Drop 92 ?
+id.drop <- c(2, 22, 41, 77, 71, 1, 83, 88, 116, 37, 93, 92)
+res <- res %>% filter(!ID %in% id.drop)
+
+tbl <- table(res$RubricId)
+dups <- tbl[tbl > 1]
+dups
+```
+
+Good.
+
+
+## Merge
+Finally, merge the data.
+
+```{r}
+res$Course <- with(res, paste(CID1, CID2, CID3))
+dim(df)
+df <- df %>%
+  left_join(res %>% select(RubricId, Instructor = Name, Course,
+                           `Assessment Name`, Semester,
+                           CID1, CID2, CID3), by="RubricId")
+dim(df)
+```
+
+Take a look.
+```{r}
+summary(df)
+```
+
+# Inspect Data
+Haven't handled the achievement levels...
+
+
+```{r}
+list.levels <- levels(df$LevelAchieved)
+list.levels
+```
+
+
+```{r}
+grep("%\\)", list.levels, value=TRUE)
+```
+
+- Advanced
+- Proficient
+- Basic
+- Developing
+- Unsatisfactory
+
+```{r}
+grep("\\d{1,3}\\/", list.levels, value=TRUE)
+```
+
+- Excellent
+- Good
+- Fair
+- Rudimentary
+- Unacceptable
+
+Those two types?
+
+```{r}
+achievements1 <- c("Advanced", "Proficient", "Basic", "Developing", "Unsatisfactory")
+achievements2 <- c("Excellent","Good","Fair","Rudimentary","Unacceptable")
+
+pttrn <- paste(c(achievements1, achievements2), collapse = "|")
+
+df$Test <- grepl(pttrn, df$LevelAchieved)
+with(df, table(LevelAchieved, Test))
+```
+Looks good.
+
+```{r}
+mdf <- df[grepl(pttrn, df$LevelAchieved), ]
+sdf <- df[!grepl(pttrn, df$LevelAchieved), ]
+```
+
+```{r}
+mdf$LevelAchieved <- droplevels(mdf$LevelAchieved)
+sdf$LevelAchieved <- droplevels(sdf$LevelAchieved)
+```
+
+Now I have `mdf` for achievements and `sdf` for attributes.
+
+```{r}
+summary(mdf)
+```
+
+## Visualize
+Now, let's pick some course and visualize.
+
+```{r}
+tdf <- mdf %>% filter(Instructor == "Kentaro Murayama")
+tdf <- droplevels(tdf)
+table(droplevels(tdf$RubricId))
+```
+
+```{r}
+table(tdf$Course, tdf$RubricId)
+```
+
+```{r}
+with(tdf, table(Course, LevelAchieved))
+```
+
+Oh... By semester, I used inconsistent levels.
+
+```{r}
+tdf <- tdf %>% mutate(LevelAchieved = str_extract(tdf$LevelAchieved, pttrn))
+with(tdf, table(Course, LevelAchieved))
+```
+```{r}
+names(achievements2) <- achievements1
+tdf$LevelAchieved <- str_replace_all(tdf$LevelAchieved, achievements2)
+with(tdf, table(Course, LevelAchieved))
+```
+
+Moreover, make levels into a factor.
+```{r}
+tdf$LevelAchieved <- ordered(tdf$LevelAchieved, levels = achievements2)
+```
+
+
+Now levels are standardized. Plot them.
+```{r}
+ggplot(tdf, aes(Course)) + geom_bar(aes(fill = LevelAchieved))
+```
+
+```{r}
+ggplot(tdf, aes(Course)) + geom_bar(aes(fill = LevelAchieved), position = "fill")
+```
+```{r}
+ggplot(tdf, aes(fct_rev(LevelAchieved))) + geom_bar(aes(fill = LevelAchieved)) + facet_wrap(vars(Course)) 
+```
+
+
+## Feedback to Data
+Alright. Enough. Let's feed the change back to the data frame.
+
+```{r}
+mdf <- mdf %>% mutate(LevelAchieved = str_extract(mdf$LevelAchieved, pttrn))
+names(achievements2) <- achievements1
+mdf$LevelAchieved <- str_replace_all(mdf$LevelAchieved, achievements2)
+table(mdf$LevelAchieved)
+```
+
+ToDo: Feed back to the `df`?
+
+## By Class
+For assessment, I need to have a summary. What does it look if I aggregate over the same course (with different instructors and sections)? How can I keep track of f2f vs online?
+
+```{r}
+mdf$Course2 <- with(mdf, paste(CID1, CID2))
+ggplot(mdf %>% filter(Course2 == "ECO 201"), aes(fct_rev(LevelAchieved))) + geom_bar(aes(fill = LevelAchieved))
+```
+
+Alright. Look more closely.
+
+```{r}
+tdf <- mdf %>% filter(Course2 == "ECO 201")
+```
+```{r}
+tdf <- droplevels(tdf)
+table(tdf$Course2, tdf$Instructor)
+```
+
+```{r}
+ggplot(tdf, aes(Instructor)) + geom_bar(aes(fill = LevelAchieved), position = "fill")
+```
+
+```{r}
+ggplot(tdf, aes(fct_rev(LevelAchieved))) + geom_bar(aes(fill = LevelAchieved)) + facet_grid(cols = vars(Instructor)) 
+```
+
+Interesting? Easier to see the shape by normalize it?
+```{r}
+ns <- tdf %>% group_by(Instructor) %>% summarise(n = n())
+tbl <- tdf %>% group_by(Instructor, LevelAchieved) %>% summarise(n = n())
+tbl <- tbl %>% left_join(ns, by = "Instructor", suffix = c("n", "N")) %>% mutate(n = nn/nN)
+tbl
+ggplot(tbl, aes(fct_rev(LevelAchieved))) + geom_col(aes(y = n, fill = LevelAchieved)) + facet_grid(cols = vars(Instructor)) 
+```
+```{r}
+ggplot(tbl, aes(fct_rev(LevelAchieved), y = n)) +
+  geom_point() +
+  geom_line(aes(group = 1)) +
+  facet_grid(cols = vars(Instructor)) 
+```
+
+## By Delivery
+Now, sections with online delivery should be with "G" in their names.
+```{r}
+table(tdf$CID3)
+```
+
+What's "CD"...? Need to check.
+
+```{r}
+tdf$Online <- tdf$CID3 == "GW1"
+```
+
+```{r}
+ggplot(tdf, aes(Online)) + geom_bar(aes(fill = LevelAchieved), position = "fill")
+```
+
+```{r}
+ggplot(tdf, aes(fct_rev(LevelAchieved))) + geom_bar(aes(fill = LevelAchieved)) + facet_grid(cols = vars(Online)) 
+```
+
+They looks fairly similar.
+
+```{r}
+tdf$Met <- tdf$LevelAchieved == "Excellent" | tdf$LevelAchieved == "Fair"
+x <- tdf %>% group_by(Online, Met) %>% summarise(n=n()) %>%
+  pivot_wider(id_cols = Online, names_from = Met, values_from = n)
+names(x) <- c("Online", "Not", "Met")
+x
+prop.test(as.matrix(x[, -1]))
+```
+
+Define "Met" by counting either "Excellent" or "Fair". Then test the proportionality between face to face (F2F) and online deliveries. The test fail to reject the hull of the same proportions.
+
+
+# Next Action
+Took too much time on the data wangling. Given the size of survey data, it's probably easy to just manually fix it. And it makes more sense since the survey questions can be improved. *Do that later and use the code for error check.*
+
+Meanwhile, put the scattered code together and move on to another note. The merged data should be "good enough" for preliminary analysis.
+
+Share the results here in the meeting tomorrow & ask about what aspects should be inspected carefully. For instance, the difference between F2F and online came up in conversations before. What do we want to know in particular? Mean, range, overall distribution? What about differences between or within instructors? (i.e. are some instructors particularly good/bad in online? are some instructors have big difference in online/F2F?)
+
+Of course, I shall follow the past report and measure the *prevalence of achievement* for each objective. For this, I need to confirm the mapping. At the moment, I mostly rely on the 2019-20 copy (draft?), but the changes from 2018-19 are not clearly documented or finalized.

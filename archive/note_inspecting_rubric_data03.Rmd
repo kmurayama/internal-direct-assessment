@@ -1,0 +1,765 @@
+---
+title: "Note to Inspect Rubric Data 3"
+output:
+  html_document:
+    toc: yes
+    toc_float:
+      collapsed: no
+    df_print: paged
+    code_folding: hide
+  html_notebook:
+    toc: true
+    toc_float:
+      collapsed: false
+    theme: paper
+date: 6/29/2020
+---
+
+
+# Objective
+Data are mostly cleaned and organized through examining each course. Bring back those procedures into the data munging stage and produce the base statistics for Standard 4.
+
+# Set up
+
+```{r, echo=FALSE, include=FALSE}
+#knitr::opts_chunk$set(message = FALSE, warning = FALSE)
+library(tidyverse)
+library(readxl)
+```
+
+## Import D2L Rubric Outcomes
+```{r import-d2l}
+fn <- "data/Rubrics.xlsx"
+df <- read_xlsx(fn) %>%
+  mutate(across(c(RubricId:Name, LevelAchieved), factor),
+         IsScoreOverridden = (IsScoreOverridden == "True"))
+```
+
+Check the content.
+```{r}
+fn2 <- "data/D2L Rubric Outcomes Request List.csv"
+df2 <- read.csv(fn2)
+head(df2)
+x <- str_extract(df2[, 1], "\\d{6}")
+
+indata <- levels(factor(df$RubricId))
+inreq <- levels(factor(x))
+
+(missing <- inreq[!inreq %in% indata])
+```
+
+## Import Survey
+As before, import the first 12 columns that are relevant to rubrics. Alter lengthy column names for convenience.
+```{r import-survey}
+fn <- "data/Tracking of Assessment of Student Learning Outcomes Data Collection.xlsx"
+res <- read_excel(fn, sheet = "Response0602")
+res <- res[res$`I graded this assessment using a rubric on D2L.` == "Yes", ]
+res <- res[1:12]
+
+qs <- names(res)
+responder.info <- c("ID", "Started", "Completed", "Email", "Name")
+course.info <- c("Semester", "Course")
+assessment.info <- c("Assessment Name", "Rubric Usage")
+rubric.info <- c("URL", "Intrepretation", "Action for Improvement")
+names(res) <- c(responder.info, course.info, assessment.info, rubric.info)
+```
+
+## Clean Up Survey
+Need to drop some error entries. One is Ed's entry later on. There are two early entries by Beth before we changed the survey questions. Neeley's entry has two rubrics, so need to split them.
+```{r drop-entries}
+res <- res[res$ID != 1 & res$ID != 2, ] # Drop early error entries
+
+assess.name <- res[res$ID == 41, c("Assessment Name", "URL")] # Keep double entry 
+anames <- str_split(assess.name$`Assessment Name`, ",", simplify = TRUE)
+urls <- str_split(assess.name$URL, "Burts", simplify = TRUE)
+
+x <- res[res$ID == 41, ]
+x$ID <- nrow(res)
+x[c("Assessment Name", "URL")] <- list(anames[2], urls[2])
+res[res$ID == 41, c("Assessment Name", "URL")] <- list(anames[1], urls[1])
+res[res$ID == 159, ] <- x # Replace Ed's entry with the modified Neeley's
+```
+
+Course names have some minor errors. It'll be easier if correcting them and split its components for later use.
+```{r clean-course}
+x <- res$Course
+x <- str_replace(x, "GW[I|!]", "GW1") # Replace some typos
+x <- str_replace(x, "GS1", "GW1") # Replace some typos
+x <- str_remove(x, "[0-9]{4,}") # Remove leading time stamp
+x <- str_replace(x, "BS[U]?", "BUS") # Replace less critical typo
+x <- str_replace(x, "-01", "-001") # Replace less critical typo
+
+cid1 <- str_match(x, "[A-Z]{2,3}") # Extract course program (e.g. BUS, MKT)
+cid2 <- str_extract_all(x, "(CD|G[WS])?[0-9]{1,3}", simplify = TRUE) # Extract
+res$Course <- paste(cid1, cid2[, 1]) # Then merge for course id e.g. MGT 300
+res$Section <- paste(cid1, cid2[, 1], cid2[, 2]) # Likewise, e.g. MGT 300 001
+
+```
+
+Lastly, prepare for merge. Need to have unique IDs.
+```{r extract-rubricid}
+x <- str_extract_all(res$URL, "rubricId=[0-9]{6}", simplify=TRUE)
+res$RubricId <- factor(str_extract_all(x, "[0-9]{6}", simplify=TRUE))
+```
+```{r, eval=FALSE}
+tbl <- table(res$RubricId)
+dups <- tbl[tbl > 1]
+res[res$RubricId==names(dups)[1], ]
+# Drop 2, 22
+res[res$RubricId==names(dups)[2], ]
+# Drop 41 (see the note)
+res[res$RubricId==names(dups)[3], ]
+# Drop 77 Why resubmit?
+res[res$RubricId==names(dups)[4], ]
+# Drop 71 ?
+res[res$RubricId==names(dups)[5], ]
+# Drop 1
+res[res$RubricId==names(dups)[6], ]
+# Drop 83 ?
+res[res$RubricId==names(dups)[7], ]
+# Drop 88 ?
+res[res$RubricId==names(dups)[8], ]
+# Different sections but provided same ID. Actual error. Drop 116.
+res[res$RubricId==names(dups)[9], ]
+# Drop 37
+res[res$RubricId==names(dups)[10], ]
+# Drop 93 ?
+res[res$RubricId==names(dups)[11], ]
+# Drop 92 ?
+```
+```{r}
+id.drop <- c(2, 22, 41, 77, 71, 1, 83, 88, 116, 37, 93, 92)
+res <- res %>% filter(!ID %in% id.drop)
+```
+
+And trim some variables and format.
+```{r }
+res.trim <- res %>%
+  mutate(across(c(ID, Email:Semester, Section:Course), factor) )
+```
+
+## Merge
+Merge the survey data into the D2L.
+```{r}
+dim(df)
+mdf <- df %>%
+  left_join(res.trim %>% select(RubricId, Instructor = Name, Course,
+                                `Assessment Name`, Semester,
+                                Section, Course), by="RubricId")
+dim(mdf)
+```
+
+# Munge Data
+Summary of the data:
+```{r}
+summary(mdf)
+```
+
+`113393` missing course ID, Semester, etc.
+
+## Clean assessment and criterion names
+Clean assessment names and criterion names (i.e. rubric rows). Start by standardizing upper/lower cases.
+```{r clean-assessment}
+mdf$`Assessment Name` <- str_to_title(mdf$`Assessment Name`)
+mdf$Name <- str_to_title(str_remove(mdf$Name, '^"'))
+
+pttrn.bus345 <- c("^Final Paper$" = "Ethics Final Paper")
+pttrn.bus499 <-
+  c("(^Final Company Paper$)|(^Company Profile$)|(^Final Company Profile$)|(^Course Profile$)" = "Company Profile (Final Paper)",
+     "Simulation After-Action Report \\(Also Submitted To Gen Ed For Evidence Of Problem Solving\\)" = "Goventure Aar")
+#    "^Development Plan$" = "Reflection And Development Plan")
+# This affects MGT 300 as well.
+pttrn.eco201.a <- c("International Trade Signature Assignment" = "Trade Policy Paper")
+pttrn.eco201.n <- c("^Arguments For Protection$"="Arguments For Protectionism",
+                    "^Citations$"="Citations/References",
+                    "^Structure$"="Structure/Clarity",
+                    "^Winners/Losers$"="Winners And Losers",
+                    "^Writing: Citations$"="Writing: Citations/References")
+pttrn.eco202.a <- c("^Cross-Country Gdp Comparison Paper$" = "Gdp Comparison Paper")
+pttrn.eco202.n <- 
+  c("^Data Collection$" = "Part 1: Data Collection",
+    "^Time-Series Graphs$" = "Part 1: Time Series Plots",
+    "^Explain Variable Movements$" = "Part 2: Explain Variable Movements",
+    "^Short-Run And Long-Run Perspectives$" = "Part 2: Short-Run And Long-Run Perspectives",
+    "^Compare And Contrast$" = "Part 2: Compare And Contrast",
+    "^Citations$" = "Writing: Citations",
+    "^Grammar$" = "Writing: Grammar",
+    "^Structure$" = "Writing: Structure")
+pttrn.mgt300 <- c("^Burt’s Bees (This Is A Re-Submission–I Typed The Course Number Wrong Before)$" = "Burt’s Bees",
+                  "^Burts Bees Case Study$" = "Burt’s Bees")
+
+pttrn.assess <- c(pttrn.bus345, pttrn.bus499, pttrn.eco202.a, pttrn.eco201.a, pttrn.mgt300)
+pttrn.name <- c(pttrn.eco202.n, pttrn.eco201.n)
+
+mdf <- mdf %>%
+  mutate(Name = str_remove(Name, '^"'),
+         `Assessment Name` = str_replace_all(`Assessment Name`, pttrn.assess),
+         Name = str_replace_all(Name, pttrn.name))
+```
+
+## Standardize Achievment Levels
+Standardize levels. As seen in Note 1, those levels can be inconsistent even with the same instructor (e.g. me) across semesters. *Extract* achievement levels from the mixture with other measures (i.e. attributes like major/minor, missing values) and some variants (e.g. 100%, 75%, etc.). Then standardize expressions.
+```{r}
+mdf$LevelAchieved <- str_replace_all(mdf$LevelAchieved, fixed("Unsatisactory (<60%)"), "Unsatisfactory") # Fix a typo
+
+achievements1 <- c("Unsatisfactory", "Developing", "Basic", "Proficient", "Advanced")
+achievements2 <- c("Unacceptable", "Rudimentary", "Fair", "Good", "Excellent")
+names(achievements2) <- achievements1 # Named list as dictionary
+pttrn <- paste(c(achievements1, achievements2), collapse = "|")
+
+x <- levels(mdf$LevelAchieved)
+
+mdf <- mdf %>% mutate(
+  LevelAchieved.Original = LevelAchieved,
+  LevelAchieved = str_extract(mdf$LevelAchieved, pttrn))
+mdf$LevelAchieved <- str_replace_all(mdf$LevelAchieved, achievements2)
+mdf$LevelAchieved <- ordered(mdf$LevelAchieved, levels = achievements2)
+
+summary(mdf$LevelAchieved)
+```
+
+## New Variables
+Add the achievement indicator variables for undergrad and grad levels.
+```{r}
+mdf <- mdf %>% mutate(
+  Met.UND = case_when(
+    is.na(LevelAchieved) ~ "Missing",
+    LevelAchieved == "Excellent" | LevelAchieved == "Good" |
+      LevelAchieved == "Fair" ~ "Met",
+    LevelAchieved == "Rudimentary" | LevelAchieved == "Unacceptable" ~ "Not",
+    TRUE ~ "Other"),
+  Met.GRD = case_when(
+    is.na(LevelAchieved) ~ "Missing",
+    LevelAchieved == "Excellent" | LevelAchieved == "Good" ~ "Met",
+    LevelAchieved == "Fair" | LevelAchieved == "Rudimentary" |
+      LevelAchieved == "Unacceptable" ~ "Not",
+    TRUE ~ "Other"),
+  Online = grepl("GW", Section),
+  Met.UND.bin = Met.UND == "Met",
+  Met.GRD.bin = Met.GRD == "Met"
+  )
+table(mdf$LevelAchieved, mdf$Met.UND, useNA = "ifany")
+```
+
+# Investigate
+
+## Macro Measures
+Prevalence of Achievements will be used for internal assessments in ACBSP document. Let's just compute them all! Course-level (i.e. aggregate over sections and instructors) shares of students who achieved a passing level grades for each rubric row.
+
+```{r}
+tbl <- mdf %>% filter(str_detect(Name, "Major|Minor", negate = TRUE)) %>%
+  group_by(Course, `Assessment Name`, Name) %>%
+  summarise(across(ends_with(".bin"), mean))
+knitr::kable(tbl, digits = 2)
+```
+
+```{r, fig.width=9, fig.height=14}
+ggplot(tbl %>% filter(str_detect(Course, "BUS"))) +
+  geom_col(aes(str_sub(Name, 1, 30), Met.UND.bin)) + coord_flip() + 
+#  facet_wrap(Course ~ `Assessment Name`, scale = "free")
+  facet_wrap(vars(Course, `Assessment Name`), scales = "free", ncol=2)
+```
+```{r, fig.width=9, fig.height=14}
+ggplot(tbl %>% filter(str_detect(Course, "ECO"))) +
+  geom_col(aes(str_sub(Name, 1, 35), Met.UND.bin)) + coord_flip() + 
+  facet_wrap(vars(Course, `Assessment Name`), scales = "free", ncol=2)
+```
+
+```{r, fig.width=9, fig.height=14}
+ggplot(tbl %>% filter(str_detect(Course, "HRM"))) +
+  geom_col(aes(str_sub(Name, 1, 20), Met.UND.bin)) + coord_flip() + 
+  facet_wrap(vars(Course, `Assessment Name`), scales = "free", ncol=2)
+```
+```{r, fig.width=9, fig.height=14}
+ggplot(tbl %>% filter(str_detect(Course, "MGT"))) +
+  geom_col(aes(str_sub(Name, 1, 20), Met.UND.bin)) + coord_flip() + 
+  facet_wrap(vars(Course, `Assessment Name`), scales = "free", ncol=2)
+```
+
+```{r, fig.width=9, fig.height=14}
+ggplot(tbl %>% filter(str_detect(Course, "MKT"))) +
+  geom_col(aes(str_sub(Name, 1, 20), Met.UND.bin)) + coord_flip() + 
+  facet_wrap(vars(Course, `Assessment Name`), scales = "free", ncol=2)
+```
+
+### Some are too low?
+Some numbers look strange.
+```{r}
+table(mdf$Met.GRD, mdf$LevelAchieved, useNA = "ifany")
+```
+
+```{r}
+table(mdf$Met.GRD, mdf$Met.GRD.bin, useNA = "ifany")
+```
+
+```{r}
+x <- mdf %>% filter(str_detect(Name, "Major|Minor", negate = TRUE)) 
+table(x$Met.GRD, x$Met.GRD.bin, useNA = "ifany")
+```
+
+Okay, missing values are counted as "Not Met".
+
+```{r}
+mdf[mdf$Met.GRD == "Missing", "Met.GRD.bin"] <- NA
+mdf[mdf$Met.UND == "Missing", "Met.UND.bin"] <- NA
+
+table(mdf$Met.GRD, mdf$Met.GRD.bin, useNA = "ifany")
+```
+
+
+```{r, fig.width=9, fig.height=14}
+tbl <- mdf %>% filter(str_detect(Name, "Major|Minor", negate = TRUE)) %>%
+  group_by(Course, `Assessment Name`, Name) %>%
+  summarise(across(ends_with(".bin"), mean, na.rm = TRUE))
+
+p_met_und <- function(prg) {
+  ggplot(tbl %>% filter(str_detect(Course, prg))) +
+  geom_col(aes(str_sub(Name, 1, 20), Met.UND.bin)) + coord_flip() + 
+  facet_wrap(vars(Course, `Assessment Name`), scales = "free", ncol=2) +
+  geom_hline(yintercept = 0.70, color = "red")
+}
+```
+```{r, fig.width=9, fig.height=14}
+p_met_und("HRM")
+```
+
+?
+
+```{r}
+x <- mdf %>% filter(Course == "HRM 400")
+summary(x)
+```
+```{r}
+#x %>% filter(Name =="Organizational Types") %>% group_by(LevelAchieved) %>% summarize(mean(Score))
+ggplot(x %>% filter(Name =="Organizational Types")) +
+  geom_bar(aes(LevelAchieved))
+```
+So... it was actually bad?
+
+Make sure the conversion was done properly.
+```{r}
+x <- droplevels(x)
+table(x$LevelAchieved, x$LevelAchieved.Original)
+```
+
+
+### Some are too high?
+Because of the truncation, some are merged together. > Fixed manually for now.
+
+## Macro Measure Again
+
+```{r}
+#programs <- levels(factor(str_sub(mdf$Course, 1, 3)))
+
+tbl <- mdf %>% filter(str_detect(Name, "Major|Minor", negate = TRUE)) %>%
+  group_by(Course, `Assessment Name`, Name) %>%
+  summarise(across(ends_with(".bin"), mean, na.rm = TRUE))
+
+p_met_und <- function(prg) {
+  ggplot(tbl %>% filter(str_detect(Course, prg))) +
+  geom_col(aes(str_wrap(Name, 20), Met.UND.bin)) + coord_flip() + 
+  facet_wrap(vars(Course, `Assessment Name`), scales = "free", ncol=2) +
+  geom_hline(yintercept = 0.70, color = "red")
+}
+```
+```{r, fig.width=9, fig.height=14}
+p_met_und("BUS")
+```
+```{r, fig.width=9, fig.height=14}
+p_met_und("ECO")
+```
+```{r, fig.width=9, fig.height=14}
+p_met_und("HRM")
+```
+```{r, fig.width=9, fig.height=14}
+p_met_und("MGT")
+```
+```{r, fig.width=9, fig.height=14}
+p_met_und("MKT")
+```
+
+There are more things to address though. Pause here.
+
+## Pick Assessments
+
+### Business
+
+- PLO1 Both use Peregrine
+- PLO2 Internal: Annotated bibliography (rubric--milestone in company profile) 
+- PLO3 Internal: Company profile, rubric graded project.  Rubric rows  PLO3 a, b, c, d, e 
+- PLO4 Internal: BUS 499 Capstone Simulation, AAR Rows PLO4 a, b
+
+- PLO5 Internal: BUS 499 Company profile project, Rubric rows PLO2 a, b, c, d 
+- PLO6 Internal: BUS 499 Company profile Rows PLO2 e, f, g
+
+- PLO7 Internal: BUS 499 International ethics case.  Rubric Rows PLO8 a,b,C 
+- PLO8 Internal: BUS 499 International ethics case, Rubric Rows PLO7 a,b,C
+
+- PLO9 Internal: Simulation Peer Feedback #2, total score (BUS 499 Team simulation) >> Updated: AAR Rubric Rows PLO9a + PLO9b, 90% achieving "usually" or "always"
+- PLO10 Internal: Final reflection paper. BUS 499 Reflection and Development Plan Rows 1 and 2
+
+
+```{r}
+tbl <- mdf %>% filter(str_detect(Name, "Major|Minor", negate = TRUE)) %>%
+  group_by(Course, `Assessment Name`, Name) %>%
+  summarise(across(ends_with(".bin"), mean, na.rm = TRUE), n = n())
+knitr::kable(tbl, digits=2)
+```
+
+#### PLO2
+```{r}
+ggplot(tbl %>% filter(`Assessment Name`=="Annotated Bibliography" & Course == "BUS 499")) +
+  geom_col(aes(str_wrap(Name, 20), Met.UND.bin)) + coord_flip() +
+  geom_hline(yintercept = 0.70, color = "red")
+```
+
+Collect PLO2 rows? How has it been calculated in the past?
+```{r}
+res <- tbl %>%
+  filter(`Assessment Name`=="Annotated Bibliography" & Course == "BUS 499" & 
+           str_detect(Name, "Plo2"))
+avg <- res %>% summarize(Share = mean(Met.UND.bin), n = mean(n))
+
+knitr::kable(avg, digits=2)
+```
+
+
+#### PLO3-6
+
+```{r}
+ggplot(tbl %>% filter(`Assessment Name`=="Company Profile (Final Paper)" & Course == "BUS 499")) +
+  geom_col(aes(str_wrap(Name, 20), Met.UND.bin)) + coord_flip() +
+  geom_hline(yintercept = 0.70, color = "red")
+
+```
+
+```{r}
+x <- tbl %>% filter(`Assessment Name`=="Company Profile (Final Paper)" & Course == "BUS 499")
+levels(factor(x$Name))
+```
+
+```{r}
+res <- x %>% filter(str_detect(Name, "Plo")) %>% 
+  mutate(PLO = str_extract(Name, "Plo[1-9]")) %>% 
+  group_by(PLO) %>% summarize(mean(Met.UND.bin), n = mean(n))
+knitr::kable(res, digits=2)
+```
+
+
+#### PLO7-8
+```{r}
+x <- tbl %>% filter(`Assessment Name`=="Ethics Case Paper" & Course == "BUS 499")
+levels(factor(x$Name))
+```
+
+Why PLO1 PLO2?
+
+
+```{r}
+res <- x %>% filter(str_detect(Name, "Plo")) %>% 
+  mutate(PLO = str_extract(Name, "Plo[1-9]")) %>% 
+  group_by(PLO) %>% summarize(mean(Met.UND.bin), n = mean(n))
+knitr::kable(res, digits=2)
+```
+
+#### PLO9
+```{r}
+x <- tbl %>% filter(`Assessment Name`=="Goventure Aar" & Course == "BUS 499")
+levels(factor(x$Name))
+```
+
+Again, some other PLO listed. Updated?
+
+```{r}
+res <- x %>% filter(str_detect(Name, "Plo")) %>% 
+  mutate(PLO = str_extract(Name, "Plo[1-9]")) %>% 
+  group_by(PLO) %>% summarize(mean(Met.UND.bin), n = mean(n))
+knitr::kable(res, digits=2)
+```
+
+Wait. "Usually" or "Always"? How are they counted into "Met" then?
+
+
+```{r}
+x <- mdf %>% filter(`Assessment Name`=="Goventure Aar" & Course == "BUS 499")
+x <- x %>% filter(str_detect(Name, "Major|Minor", negate = TRUE))
+x <- droplevels(x)
+summary(x$LevelAchieved.Original)
+```
+
+So, it was measured as achievment to begin with...?
+
+
+#### PLO10
+
+```{r}
+x <- tbl %>% filter(`Assessment Name`=="Reflection And Development Plan" & Course == "BUS 499")
+levels(factor(x$Name))
+```
+```{r}
+res <- x %>% 
+  group_by(Name) %>% summarize(mean(Met.UND.bin), n = mean(n))
+knitr::kable(res, digits=2)
+```
+
+I don't know which are Rows 1 and 2. Report all.
+
+Everyone passed?
+
+```{r}
+x <- mdf %>% filter(`Assessment Name`=="Reflection And Development Plan" & Course == "BUS 499")
+x <- x %>% filter(str_detect(Name, "Major|Minor", negate = TRUE))
+x <- droplevels(x)
+summary(x$LevelAchieved.Original)
+```
+
+
+Also, ToDo: Merge "Development Plan". Obviously the same assignment.
+```{r}
+x <- mdf %>% filter(`Assessment Name`=="Development Plan" & Course == "BUS 499")
+x <- x %>% filter(str_detect(Name, "Major|Minor", negate = TRUE))
+x <- droplevels(x)
+summary(x$LevelAchieved.Original)
+```
+
+It won't change the prevalence though.
+
+#### Trend
+Now I want to merge these into the past data. I have them stored in the data sheet... What would be an easy way? Store those results into a table identified by PLO and add the (academic) year 2019, then that would be sufficient?
+```{r}
+past <- read_excel("data/Assessment Data Main.xlsx")
+summary(past)
+```
+
+Now redo the computations. For BUS, it's easy to do because of tags.
+```{r}
+x <- tbl %>%
+  filter(Course == "BUS 499" & str_detect(Name, "Plo")) %>% 
+  mutate(PLO = str_extract(Name, "Plo[1-9]")) %>% 
+  group_by(`Assessment Name`, PLO) %>% summarize(Outcome = mean(Met.UND.bin),
+                                                 `Sample Size` = mean(n))
+knitr::kable(x, dig=2)  
+```
+
+Aggregate over assessment, although keep in mind there are several mismatches.
+```{r}
+x <- tbl %>%
+  filter(Course == "BUS 499" & str_detect(Name, "Plo")) %>% 
+  mutate(PLO = str_extract(Name, "Plo[0-9]{1,2}")) %>% 
+  group_by(PLO) %>% summarize(Outcome = mean(Met.UND.bin),
+                                                 `Sample Size` = mean(n))
+
+knitr::kable(x, dig=2)  
+```
+
+```{r}
+x <- x %>% mutate(`Academic Year` = rep(2019, nrow(x)),
+                  `Learning Objective Number` = str_extract(PLO, "[1-9]")) %>% 
+  select(-PLO)
+y <- past %>%
+  filter(Program == "Business Core", `Assessment Type` == "Internal",
+         str_detect(Source, "2020")) %>% 
+  select(`Academic Year`, `Learning Objective Number`, Outcome, `Sample Size`) %>% 
+  mutate(`Learning Objective Number` = as.character(`Learning Objective Number`))
+names(x); names(y)
+out <- bind_rows(x, y)
+head(out)
+```
+
+```{r}
+out <- out %>% mutate(`Academic Year` = ordered(`Academic Year`))
+summary(out)
+```
+
+```{r}
+ggplot(out %>% filter(`Learning Objective Number` != 10),
+       aes(`Academic Year`, Outcome, group = `Learning Objective Number`)) + 
+  geom_line() + geom_point(aes(color = Outcome > 0.7)) +
+  scale_colour_manual(values = setNames(c('blue','red'),c(T, F))) +
+  geom_text(aes(`Academic Year`, 0.5, label = round(`Sample Size`, 0)),
+            alpha = 0.4) +
+  geom_hline(yintercept = 0.7, color = "red") +
+  scale_y_continuous(labels=scales::percent) +
+  facet_wrap(vars(`Learning Objective Number`)) +
+  theme_minimal() +
+  ggtitle("Business Core, Prevalence of Achievments Over Time, by PLO")
+```
+
+-	PLO2 Internal: Annotated bibliography (rubric–milestone in company profile) >> Found in Company Profile as well?
+-	PLO3 Internal: Company profile, rubric graded project. Rubric rows PLO3 a, b, c, d, e
+-	PLO4 Internal: BUS 499 Capstone Simulation, AAR Rows PLO4 a, b >> Capstone Simulation? Used one from Company Profile & AAR labelled as 4.
+-	PLO5 Internal: BUS 499 Company profile project, Rubric rows PLO2 a, b, c, d >> Used those labelled PLO5
+-	PLO6 Internal: BUS 499 Company profile Rows PLO2 e, f, g >> Used those labelled PLO6
+-	PLO7 Internal: BUS 499 International ethics case. Rubric Rows PLO8 a,b,C >> Included d and 3. Remove them.
+-	PLO8 Internal: BUS 499 International ethics case, Rubric Rows PLO7 a,b,C >> Included d. Remove it.
+-	PLO9 Internal: Simulation Peer Feedback #2, total score (BUS 499 Team simulation) >> Updated: AAR Rubric Rows PLO9a + PLO9b, 90% achieving “usually” or “always”
+-	PLO10 Internal: Final reflection paper. BUS 499 Reflection and Development Plan Rows 1 and 2>> Which?
+
+Also note that PLO 1 shouldn't be obtained from rubrics and some unexplained mismatches between PLO and assignments are there. These are all inclusive numbers.
+
+#### Response from Beth
+
+> Ken,
+> 
+> They are lovely!
+> 
+> You will see overlapping PLO in the different assessments. 
+> 
+> PLO2 is in most of them, but we only pull the assessment data out of the Annotated bibliography, as the others are just a general sort of "used sources in this project" general thing.
+> 
+> PLO10--just count rows 1 and 2==nothing else from the assessment. However you average/sum them. Pretty much everyone will pass. 
+> 
+> PLO1 is generic in the internal assessments. It's really geared toward maximizing the use of the Pergrine exam.
+> We will do better this year. Jake and I have been working pretty hard at it!
+> 
+> You are the best!
+
+Yay. :D
+
+So, then, let's clear them up a bit. Meanwhile, ask about PLO10.
+
+
+```{r}
+x <- tbl %>%
+  filter(Course == "BUS 499" & str_detect(Name, "Plo")) %>% 
+  mutate(PLO = str_extract(Name, "Plo[1-9]")) %>% 
+  group_by(`Assessment Name`, PLO) %>% summarize(Outcome = mean(Met.UND.bin),
+                                                 `Sample Size` = mean(n))
+knitr::kable(x, dig=2)  
+```
+
+So,
+- Use PLO2 only from Annotated Bibliography
+-	Use Company profile PLO3 a, b, c, d, e for PLO3
+-	PLO4 Internal: BUS 499 Capstone Simulation, AAR Rows PLO4 a, b >> Capstone Simulation? Used one from Company Profile & AAR labeled as 4. >> Still unclear.
+-	PLO5 Internal: BUS 499 Company profile project, Rubric rows PLO2 a, b, c, d >> Used those labeled PLO5 in Company Profile >> Still unclear
+-	PLO6 Internal: BUS 499 Company profile Rows PLO2 e, f, g >> Used those labeled PLO6 from three assignments >> Still unclear
+-	PLO7 Internal: BUS 499 International ethics case. Rubric Rows PLO8 a,b,C >> Included d and 3. Remove them.
+-	PLO8 Internal: BUS 499 International ethics case, Rubric Rows PLO7 a,b,C >> Included d. Remove it.
+-	PLO9 Internal: Simulation Peer Feedback #2, total score (BUS 499 Team simulation) >> Updated: AAR Rubric Rows PLO9a + PLO9b, 90% achieving “usually” or “always” >> Check the raw data and then ask about them
+-	PLO10 Internal: Final reflection paper. BUS 499 Reflection and Development Plan Rows 1 and 2>> Which? >> Challenges (1) Leadership skills (2)
+
+
+Hmm.. Not much to update yet. Let's wait for more clarifications this week.
+
+#### Completeness?
+On the related notes, let's clarify which assignments have been submitted from Mark.
+
+```{r}
+x <- mdf %>% filter(Course == "BUS 499")
+x <- droplevels(x)
+
+tbl <- x %>% group_by(Instructor, `Assessment Name`, Name) %>% summarise(n = n())
+tbl <- tbl %>% pivot_wider(id_cols = c(`Assessment Name`, Name),
+                           names_from = "Instructor", values_from = "n")
+knitr::kable(tbl)
+```
+
+"GoVenture AAR" and "Reflection and Development" are missing from Mark.
+
+
+### Economics
+The current version shows that ECO 301, 302, and 421 are used. So, none of 201 and 202. What's the role of signature assignments in those?
+
+Rubric rows are not specified in those PLO (3-5) for ECO 421 and hard to guess from PLOs themselves. Ask Ed and Paul.
+
+### Human Resource Management
+Likewise, rubric rows are not specified.
+
+### Management
+BUS 345
+- PLO1: Rubric-graded case study assignment.  >> Which case study?
+- PLO2: Grade on a case study assignment: Engstrom Auto Mirror Plant Analysis: Three week project with five parts >> Engstrom Auto Mirror Plant??
+- PLO3: Rubric-graded individual or group business plan assignment >> Again, which one?
+
+### Marketing
+All are from MKT401
+
+- PLO2: : Individually completed marketing research paper.  ONLINE course. >> Holistic?
+- PLO3: Students used a semester-long case study, involving a team and research-based approach, in which each team identified a social issue, research to justify the choice, crafted a business and marketing plan to assist with or eliminate the social issue using marketing principles to attract donors and volunteers to assist to meet or exceed stated learning outcome >> Moved from MKT 341?
+
+### Non-rubric data?
+Many missing. Mostly missing links. Perhaps I can find some from the non-rubric data.
+
+```{r}
+non <- read_excel("data/Non Rubric Data.xlsx")
+non
+```
+Not much help here, although I need to handle those fields without any rubric data though... ACC and MIS
+
+
+## Missing Data?
+To follow up with the missing FIN courses. Let's examine the D2L data. I imported the request file in Section "Set up".
+
+```{r}
+missing
+```
+
+What courses are they?
+```{r}
+tbl <- res.trim %>% filter(RubricId %in% missing) %>% select(URL, Name, Semester, Course)
+knitr::kable(tbl)
+```
+
+Or...
+```{r}
+tbl %>% transmute(str_extract(URL, "\\d{6}"))
+```
+Requested Jon Kallis to check those URLs. 6/29/2020.
+
+Also noticed. `133646` is available. It just uses different achievment levels. ...This is a problem. Are there other rubrics that are excluded for the same reason?
+
+# Achievement Levels?
+From all the levels, remove all the Major|Minor questions:
+```{r}
+x <- mdf %>% filter(!str_detect(Name, "Major|Minor"))
+levels(factor(x$LevelAchieved.Original))
+```
+
+Remove those include the set of achievement levels:
+```{r}
+achievements1 <- c("Unsatisfactory", "Developing", "Basic", "Proficient", "Advanced")
+achievements2 <- c("Unacceptable", "Rudimentary", "Fair", "Good", "Excellent")
+names(achievements2) <- achievements1 # Named list as dictionary
+pttrn <- paste(c(achievements1, achievements2), collapse = "|")
+
+y <- x[!str_detect(x$LevelAchieved.Original, pttrn), ]
+
+levels(factor(y$LevelAchieved.Original))
+```
+
+Anyway, the list include of levels include things like "Level 2", "Unsatisfactory", etc. Need to check those.
+
+### Level #?
+Check with an instance "Level 2". What rubrics?
+```{r}
+x <- mdf %>% filter(LevelAchieved.Original == "Level 2")
+x <- droplevels(x)
+levels(x$RubricId)
+```
+Of courses:
+```{r}
+levels(x$Course)
+levels(x$Instructor)
+```
+
+Got it. What are those levels?
+```{r}
+mdf %>% filter(Course == "FIN 301", Instructor == "Nan Li") %>% group_by(LevelAchieved.Original) %>% summarise(n())
+```
+Suppose there's Level 1. Only 4 levels, or no one got Level 5? What would be considered "Proficiency"? Need to ask.
+
+### Unsatisfactory (<60%)?
+Similarly,
+```{r}
+x <- mdf %>% filter(LevelAchieved.Original == "Unsatisfactory (<60%)")
+x <- droplevels(x)
+levels(x$RubricId)
+```
+
+Wait. That is supposed to be catched. ...It's a typo "Unsatisactory (<60%)" Okay, that's easy to fix. >> ...Done.
+
+# Side Note
+
+- Fixing the data clean up retrospectively, the effort for maintenance of the existing notes multiply. Let's keep it linear and apply in following notes.
+- The note is getting big and the "Set up" stage needs to be modified rarely. Let's externalize that part and reuse.

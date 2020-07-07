@@ -1,56 +1,63 @@
-library(tidyverse)
-library(readxl)
+## ---- import-d2l ----
+fn <- "data/Rubrics.xlsx"
+df <- read_xlsx(fn) %>%
+  mutate(across(c(RubricId:Name, LevelAchieved), factor),
+         IsScoreOverridden = (IsScoreOverridden == "True"))
 
-read_rubrics <- function(fn){
-  # Read the excel of rubric outcomes from D2L
-  # The specifications may change so check the format
-  # Input: fn is a file name
-  # Output: Dataframe
-  read_xlsx(fn,
-            col_types = c("text", "text", "text", "text", "numeric",
-                          "text", "skip", "logical", "text"))
-}
-clean_rubrics <- function(x){
-  # Clean up and assign variable attributes
-  # Sort out variable types
-  x <- x %>% filter_all(any_vars(!is.na(.)))
-  x$AssessmentId <- factor(x$AssessmentId)
-  x$UserId <- factor(x$UserId)
-  x$CriterionId <- factor(x$CriterionId)
-  # Standardise some variations in values
-  # Need to separate the hardcoded data
-  lstLevel <- x$LevelAchieved
-  lstLevel <- gsub("Excellent 100%", "Excellent", lstLevel)
-  lstLevel <- gsub("Good 85%", "Good", lstLevel)
-  lstLevel <- gsub("Basic 75%", "Basic", lstLevel)
-  lstLevel <- gsub("Rudimentary 65%", "Rudimentary", lstLevel)
-  lstLevel <- gsub("Unacceptable 0%", "Unacceptable", lstLevel)
-  lstLevel <- gsub("Always 100%", "Always", lstLevel)
-  lstLevel <- gsub("Usually 85%", "Usually", lstLevel)
-  lstLevel <- gsub("Sometimes 75%", "Sometimes", lstLevel)
-  lstLevel <- gsub("Rarely 65%", "Rarely", lstLevel)
-  x$LevelAchieved <- lstLevel
-  x
-}
-mdf <- read_rubrics("data/Rubric Export.xlsx")
-mdf <- clean_rubrics(mdf)
+## ---- import-survey ----
+fn <- "data/Assessment Survey Responses.xlsx"
+survey <- read_excel(fn, "Edited")
+qs <- names(survey)
+nms <- c("ID" = "ID",
+         "Drop" = "Drop",
+         "Start ti" = "Start",
+         "Completi" = "Complete", 
+         "Email" = "Email",
+         "Name" = "Instructor",
+         "In which" = "Semester",
+         "Course A" = "Course.Section.Original",
+         "Course" = "Course",
+         "Section" = "Section",
+         "What is " = "Assessment.Original",
+         "Assessme" = "Assessment",
+         "Follow u" = "Follow up",
+         "I graded" = "Rubric",
+         "Copy and" = "URL",
+         "Analysis" = "Analysis.Rubric",
+         "Action f" = "Action.Rubric",
+         "What is " = "PLO.Original",
+         "PLO" = "PLO",
+         "What is " = "n.original",
+         "n" = "n",
+         "If this " = "np.original",
+         "np" = "np",
+         "Analysis" = "Analysis.Non.Rubric",
+         "Action f" = "Action.Non.Rubric")
+names(survey) <- nms
 
-# Frequency 93593, 94900
-# Attribute 111740
-# Separate different types of rubrics
-sdfFreq <- mdf %>% filter(RubricId == 93593 | RubricId == 94900)
-sdfAttr <- mdf %>% filter(RubricId == 111740)
-sdf <- mdf %>% filter(RubricId != 93593 & RubricId != 94900 & RubricId != 111740)
+# Non rubric data are not relevant for D2L output data
+non <- survey %>%
+  filter(Rubric == "No", !Drop) %>%  select(-c(URL:Action.Rubric))
+survey <- survey %>%
+  filter(Rubric == "Yes", !Drop) %>%  select(ID:PLO)
 
-test <- mdf %>%
-  mutate(RubricType = case_when(RubricId == 93593 | RubricId == 94900 ~ "Frequency",
-                                RubricId == 111740 ~ "Attributes",
-                                TRUE ~ "Achievement"))
-sdf <- filter(test, RubricType == "Achievement")
+## ---- extract-rubricid ----
+x <- str_extract_all(survey$URL, "rubricId=[0-9]{6}", simplify=TRUE)
+survey$RubricId <- factor(str_extract_all(x, "[0-9]{6}", simplify=TRUE))
 
-# To have the logical order to the category, apply a ordered combination
-cLevelOrdered <- c("Unacceptable", "Rudimentary", "Basic", "Good", "Excellent")
-sdf$LevelAchieved <- factor(sdf$LevelAchieved,
-                            levels = cLevelOrdered, ordered = TRUE)
+## ---- drop-duplicates ----
+id.drop <- c(22, 66, 65, 61, 62, 114, 37, 64, 63)
+df2 <- survey %>% filter(!ID %in% id.drop)
 
-save(list = ls(pattern = "sdf"), file = "out/rubricdata.RData")
+
+## ---- merge ----
+mdf <- df %>%
+  left_join(df2 %>%
+              select(RubricId, Instructor, Semester,
+                     Course, Section, Course.Section.Original,
+                     Assessment, Assessment.Original,
+                     Rubric, PLO.Original, PLO), by="RubricId")
+
+## ---- import supplementary ----
+past <- read_excel("data/Assessment Data Main.xlsx", sheet = "Main")
+rowmap <- read_excel("data/Assessment Data Main.xlsx", sheet = "Mapping")

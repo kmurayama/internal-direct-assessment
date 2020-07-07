@@ -1,0 +1,869 @@
+---
+title: "Note to Inspect Rubric Data 5"
+date: 7/6/2020
+output:
+  html_document:
+    toc: yes
+    toc_float:
+      collapsed: no
+    df_print: paged
+    code_folding: hide
+  html_notebook:
+    toc: yes
+    toc_float:
+      collapsed: yes
+    code_folding: hide
+---
+
+```{r, echo=FALSE, include=FALSE}
+#knitr::opts_chunk$set(message = FALSE, warning = FALSE)
+library(tidyverse)
+options(dplyr.summarise.inform=FALSE) 
+library(readxl)
+```
+
+# Objective
+Data are mostly cleaned and organized; PLOs are largely matched for Standard 4 reporting; yet, there are several critically missing pieces. 1) Present the outcomes for those which are present and 2) sort out the current situation and follow up with faculty/staff for missing information (i.e. missing data, assessments, and mappings).
+
+# Set up
+Import data. Codes are externalized for reuse. As a reference:
+- `mdf` or main data frame contains the rubric outcome data merged with the course/assessment information gathered from the survey. Data are mostly cleaned up.
+- `past` data frame contains the assessment outcome data from the past.
+- `non` data frame contains the AY2019 assessments without rubrics.
+```{r}
+source('read.R')
+# ToDo: Avoid use of side-effects. Save and reload. Merge this step with top chunk.
+source('munge.R')
+```
+
+In this document, begin some refactoring for convenience in the future. Document them and apply into the source files above, when moving on to the next iteration.
+
+## Non-rubric Outcomes Clean up
+First, distinguish course and section.
+```{r}
+non <- non %>%
+  mutate(Section = factor(Course),
+         Course = factor(str_sub(Course, 1, 7)))
+```
+
+Assessment Names are not standardized and subject to aggregation errors. 
+```{r}
+levels(factor(non$`Assessment Name`))
+```
+
+Assessment names:
+```{r}
+tbl <- non %>% group_by(Course, `Assessment Name`) %>% summarize(n = n())
+knitr::kable(tbl)
+```
+
+```{r, eval=FALSE}
+non %>% filter(str_detect(`Assessment Name`, "Information Literacy")) # into this
+
+non %>% filter(str_detect(`Assessment Name`, "Exam")) %>% select(Section, `Assessment Name`, `PLO Mixed`) # List up?
+# Same "exam" can refer to different parts. Check PLOs.
+
+non %>% filter(Course == "BUS 242", str_detect(`Assessment Name`, "signature assignment")) # Into Singature Assignment
+
+non %>% filter(Course == "BUS 381") # ? Signature Assignment = Final Project, but multiple objectives?
+non %>% filter(Course == "BUS 381") %>% select(Section, `Assessment Name`, `PLO Mixed`) # LO1-3,5,8 are separate in 002. Aggregate to be consistent with others?
+non %>% filter(Course == "BUS 381", str_detect(`Assessment Name`, "(Final Project)|(Signature Assignment)")) # Into "Signature Assignment"/
+
+non %>% filter(Course == "FIN 301") # 1: Ratio data ~ Sig 1, 2: capital budgeting, 3:Ethics ~ Sig 4, "Rich Uncle" combines 1 & 2; 2019 Fall different? ... Need to ask.
+
+non %>% filter(Course == "MGT 300")
+non %>% filter(Course == "MGT 300", str_detect(`Assessment Name`, "Burt's Bees")) # Into Burt's Bees
+non %>% filter(Course == "MIS 201") # Mark Kjellander inconsistent with Adnan's? With Final Exam question and ALL LO ... Leave as is and skip. Meanwhile, ask Adnan for clarification
+```
+```{r}
+# Test:
+#course1 <- "BUS 381"
+#name1 <- "(Final Project)|(Signature Assignment)"
+#pattern1 <- "(.*Final Project.*)|(.*Signature Assignment.*)"
+#name2 <- "Signature Assignment"
+#
+#non %>% filter(Course == course1, str_detect(`Assessment Name`, name1)) %>% transmute(`Assessment Name`, New = str_replace_all(`Assessment Name`, pattern1, name2))
+
+pttrn.bus771 <- c(".*Information Literacy.*" = "Information Literacy",
+                  ".*Exam.*" = "Exam")
+pttrn.bus242 <- c("signature assignment.*" = "Signature Assignment")
+pttrn.bus381 <- c("(.*Final Project.*)|(.*Signature Assignment.*)" = "Signature Assignment")
+pttrn.mgt300.2 <- c("Burt's Bees.*" = "Burt's Bees")
+pttrn <- c(pttrn.bus771, pttrn.bus242, pttrn.bus381, pttrn.mgt300.2)
+
+non <- non %>% mutate(`Assessment Name` = str_replace_all(`Assessment Name`, pttrn))
+table(non$`Assessment Name`)
+```
+
+PLOs:
+```{r}
+# Standardize cases and extra spaces
+non <- non %>% mutate(`PLO Mixed` =
+                        str_replace_all(str_to_upper(`PLO Mixed`), "\\s\\s", " "))
+table(non$`PLO Mixed`)
+```
+
+Lastly, convert variable types and compute the proporiton of students who passed the goal.
+```{r}
+non <- non %>% mutate(Instructor = factor(Instructor),
+                      Semester = factor(Semester),
+                      Program = factor(Program),
+                      Met = pass_n / n)
+summary(non)
+```
+
+
+## Mapping
+Excel files under `2. Assessment Plan` folder in SharePoint are good for *developing assessment plans* but hard to refer back. Use the "database" file `/Data/Assessment Data Main.xlsx` for *maintenance*.
+
+Specify the "Main" worksheet while reading the file in `read.R` (i.e. modify the existing line) and "Mapping" worksheet for the new info (i.e. add a new line). The mapping is stored in `map` object.
+
+# PLO Measures for Standard 4
+
+## Overview
+For Standard 4, we only need a rather small subset of the assessments available. Produce the summary of outcomes in the context of historical changes. 
+
+- ACBSP requires 3-5 data points, so make sure to have sufficient numbers.
+- ACBSP requires graphs with sample sizes.
+- Nuventive requires numbers. Produce data tables along with the graphs.
+
+Once Standard 4 is done, we can discuss weakness/shortcomings and strength/improvements in our program, then look at other courses - including the ones at an earlier stage of each program - to find *opportunities for improvement* and *close the loop*. That is, we can get to **Standard 6** analysis.
+
+## Summarize Outcomes
+Rubric outcome data are collected at individual level. Take average over `Course` level for each assignment. All the inconsistencies have been dealt with.
+```{r}
+# Undergrad focus for now
+tbl1 <- mdf %>% filter(str_detect(Name, "Major|Minor", negate = TRUE)) %>%
+  group_by(Course, `Assessment Name`, Name) %>%
+  summarise(Met = mean(Met.UND.bin), n = n())
+```
+
+Non-rubric data are collected at `Section` level and as shares of students who achieved goals. Use the class size as a weight to have the proper aggregation. Moreover, keep the `PLO Mixed` column for identifying apparently-identical assessments (e.g. different parts of exams).
+```{r}
+tbl2 <- non %>%
+  group_by(Course, `Assessment Name`, `PLO Mixed`) %>%
+  summarise(Met = weighted.mean(x = pass_n/n, w = n, na.rm = TRUE),
+            n = sum(n, na.rm = TRUE))
+#non %>% filter(Course == "BUS 381")
+#non %>% filter(Course == "FIN 301")
+```
+
+Lastly, the mapping between PLOs and rubric rows, where available, can be used to pick up relevant information.
+```{r}
+# map is taken by purr. Rename it...
+mapping <- map
+# Replace text NA into na
+mapping <- mapping %>% mutate(across(where(is.character), na_if, "NA"))
+```
+
+### Mapping Usage?
+Now, when exact match of assessment names are rare. How shall I automte this?
+
+List up PLOs for a program.
+```{r}
+x <- mapping %>% filter(Program == "Accounting") %>%
+  discard(~all(is.na(.x))) %>% map_df(~.x) %>% 
+  select(-c(Program, Goal, `Last Checked`))
+knitr::kable(x)
+```
+
+Extract each PLO.
+```{r}
+mapping[1, ]
+```
+
+If assessment names are uniquely identified, I can merge `mdf` and `non` with `mapping` and filter results. However, that's not the case at all. Instead, manually select rows (as in the previous note), but use the assessment names taken from the `mapping` ... with modification.
+
+Treat `PLO Mixed` as if they are rubric rows and merge the data frames.
+```{r}
+names(tbl1); names(tbl2)
+tbl2 <- tbl2 %>% rename(Name = `PLO Mixed`)
+tbl3 <- tbl1 %>% bind_rows(tbl2)
+summary(tbl3)
+```
+
+Now, try to find patterns?
+```{r}
+mapping %>% filter(Program == "Accounting") %>%
+  discard(~all(is.na(.x))) %>% map_df(~.x) %>% 
+  select(-c(Program, Goal, `Last Checked`))
+x <- tbl3 %>% filter(Course == "ACC 331", `Assessment Name` == "Exam", Name == "ACCOUNTING LO 1")
+x %>% summarize(mean = mean(Met), n = min(n)) %>% mutate(PLO = 2)
+tbl3 %>% filter(Course == "ACC 331", `Assessment Name` == "Exam", Name == "ACCOUNTING LO 2")
+x %>% summarize(mean = mean(Met), n = min(n)) %>% mutate(PLO = 3)
+tbl3 %>% filter(Course == "ACC 441", `Assessment Name` == "Exam", Name == "ACCOUNTING LO 4")
+x %>% summarize(mean = mean(Met), n = min(n)) %>% mutate(PLO = 4)
+
+mapping %>% filter(Program == "Business Core") %>%
+  discard(~all(is.na(.x))) %>% map_df(~.x) %>% 
+  select(-c(Program, Goal, `Last Checked`))
+tbl3 %>% filter(Course == "BUS 499")
+x <- tbl3 %>% filter(Course == "BUS 499", `Assessment Name` == "Annotated Bibliography", str_detect(Name, "Plo2"))
+x %>% summarize(mean = mean(Met), n = min(n)) %>% mutate(PLO = 2)
+x <- tbl3 %>% filter(Course == "BUS 499", `Assessment Name` == "Company Profile", str_detect(Name, "Plo3"))
+x %>% summarize(mean = mean(Met), n = min(n)) %>% mutate(PLO = 3)
+x <- tbl3 %>% filter(Course == "BUS 499", `Assessment Name` == "Goventure Aar", str_detect(Name, "Plo4"))
+x %>% summarize(mean = mean(Met), n = min(n)) %>% mutate(PLO = 4)
+x <- tbl3 %>% filter(Course == "BUS 499", `Assessment Name` == "Company Profile", str_detect(Name, "5[a|b|c|d]"))
+x %>% summarize(mean = mean(Met), n = min(n)) %>% mutate(PLO = 5)
+x <- tbl3 %>% filter(Course == "BUS 499", `Assessment Name` == "Company Profile", str_detect(Name, "6[e|f|g]"))
+x %>% summarize(mean = mean(Met), n = min(n)) %>% mutate(PLO = 6)
+x <- tbl3 %>% filter(Course == "BUS 499", `Assessment Name` == "Ethics Case Paper", str_detect(Name, "Plo7"))
+x %>% summarize(mean = mean(Met), n = min(n)) %>% mutate(PLO = 7)
+x <- tbl3 %>% filter(Course == "BUS 499", `Assessment Name` == "Ethics Case Paper", str_detect(Name, "Plo8"))
+x %>% summarize(mean = mean(Met), n = min(n)) %>% mutate(PLO = 8)
+x <- tbl3 %>% filter(Course == "BUS 499", `Assessment Name` == "Goventure Aar", str_detect(Name, "Plo9"))
+x %>% summarize(mean = mean(Met), n = min(n)) %>% mutate(PLO = 9)
+x <- tbl3 %>% filter(Course == "BUS 499", `Assessment Name` == "Development Plan", str_detect(Name, ".*"))
+x %>% summarize(mean = mean(Met), n = min(n)) %>% mutate(PLO = 10)
+
+```
+
+I still need to feed course and assessment name, but the rest can be generalized.
+```{r}
+cname <- "BUS 499"
+aname <- "Annotated Bibliography"
+oname <- "Plo2"
+plo <- 2
+tbl3 %>% filter(Course == cname, `Assessment Name` == aname,
+                str_detect(Name, oname)) %>% 
+  summarize(mean = mean(Met), n = min(n)) %>% mutate(PLO = plo)
+```
+
+So, make a simple wrapper.
+```{r}
+cname <- "BUS 499"
+aname <- "Annotated Bibliography"
+oname <- "Plo2"
+plo <- 2
+get_outcome <- function(cname, aname, oname, plo){
+  if(is.na(cname)){return(NA)}
+  tbl3 %>% filter(Course == cname, `Assessment Name` == aname,
+                  str_detect(Name, oname)) %>% 
+    summarize(mean = mean(Met), n = min(n)) %>% mutate(PLO = plo)
+}
+get_outcome(cname, aname, oname, plo)
+```
+
+And, I want a table and a graph for each program. Make a list as before.
+```{r}
+pname <- "Accounting"
+cnames <- c("ACC 331", "ACC 331", "ACC 441")
+anames <- c("Exam", "Exam", "Exam")
+onames <- c("ACCOUNTING LO 1", "ACCOUNTING LO 2", "ACCOUNTING LO 4")
+plos <- c(1, 2, 4)
+
+lres <- list()
+i <- 1
+lres[[i]] <- get_outcome(cnames[i], anames[i], onames[i], plos[i])
+i <- i + 1
+lres[[i]] <- get_outcome(cnames[i], anames[i], onames[i], plos[i])
+i <- i + 1
+lres[[i]] <- get_outcome(cnames[i], anames[i], onames[i], plos[i])
+```
+
+Wrap it.
+```{r}
+pname <- "Accounting"
+cnames <- c("ACC 331", "ACC 331", NA, "ACC 441")
+anames <- c("Exam", "Exam", NA, "Exam")
+onames <- c("ACCOUNTING LO 1", "ACCOUNTING LO 2", NA, "ACCOUNTING LO 4")
+plos <- 1:4
+
+get_outcomes <- function(pname, cnames, anames, onames, plos){
+  lres <- list()
+  for(i in 1:length(plos)){
+    lres[[i]] <- get_outcome(cnames[i], anames[i], onames[i], plos[i])
+  }
+  lres
+}
+get_outcomes(pname, cnames, anames, onames, plos)
+```
+
+Put the list into a table and a graph.
+```{r}
+lres <- get_outcomes(pname, cnames, anames, onames, plos)
+
+get_output <- function(pname, lres){
+  lres <- lres[!is.na(lres)]
+  x <- bind_rows(lres)
+  x <- x %>% ungroup() %>% 
+    transmute(`Academic Year` = rep(2019, nrow(x)),
+              `Learning Objective Number` = as.numeric(PLO),
+              `Outcome` = mean, `Sample Size` = n )
+  y <- past %>%
+    filter(Program == pname, `Assessment Type` == "Internal",
+           str_detect(Source, "2020")) %>% 
+    select(`Academic Year`, `Learning Objective Number`, Outcome, `Sample Size`)
+  out <- bind_rows(x, y)
+  
+  title <- paste0(pname, ", Prevalence of Achievments Over Academic Years, by PLO")
+  caption <- "Grey number represents sample size.\nFor 2019, minimum sample size is used if prevalence is computed from multiple criteria."
+  p <- ggplot(out,
+         aes(`Academic Year`, Outcome, group = `Learning Objective Number`)) +
+    geom_line(na.rm = TRUE) +
+    geom_point(aes(color = Outcome > 0.7), na.rm = TRUE) +
+    scale_colour_manual(values = setNames(c('blue','red'),c(T, F))) +
+    geom_text(aes(`Academic Year`, 0.5, label = round(`Sample Size`, 0)),
+              alpha = 0.4, na.rm = TRUE) +
+    geom_hline(yintercept = 0.7, color = "red") +
+    scale_y_continuous(labels=scales::percent) +
+    facet_wrap(vars(`Learning Objective Number`)) +
+    theme_minimal() +
+    labs(title = title, caption = caption) +
+    theme(axis.title = element_blank(),
+          text = element_text(family = "serif"),
+          panel.grid.minor.x = element_blank(),
+          legend.position = "none")
+    
+  list(out, p)
+}
+
+out <- get_output("Accounting", lres)
+knitr::kable(out[[1]], dig=2)
+print(out[[2]])
+```
+
+More.
+```{r}
+clist <- list("Accounting" = c("ACC 331", "ACC 331", "ACC 441"),
+           "Business Core" = rep("BUS 499", 10))
+alist <- list("Accounting" = c("Exam", "Exam", "Exam"),
+              "Business Core" = c("Annotated Bibliography", "Company Profile",
+                                  "Goventure Aar", "Company Profile",
+                                  "Company Profile", "Ethics Case Paper",
+                                  "Ethics Case Paper", "Goventure Aar",
+                                  "Development Plan"))
+olist <- list("Accounting" = c("ACCOUNTING LO 1", "ACCOUNTING LO 2",
+                               "ACCOUNTING LO 4"),
+           "Business Core" = c("Plo2", "Plo3", "Plo4", "5[a|b|c|d]", "6[e|f|g]",
+                               "Plo7", "Plo8", "Plo9", ".*"))
+plist <- list("Accounting" = c(1, 2, 4),
+              "Business Core" = 2:10)
+
+
+pname <- "Accounting"
+get_outcomes(pname, clist[[pname]], alist[[pname]], olist[[pname]], plist[[pname]])
+pname <- "Business Core"
+lres <- get_outcomes(pname, clist[[pname]], alist[[pname]], olist[[pname]], plist[[pname]])
+
+out <- get_output(pname, lres)
+knitr::kable(out[[1]], dig=2)
+print(out[[2]])
+```
+
+Good.
+
+Manual entry of the assessment information is really tedious and the wrapper functions only save a small amount of work. However, it highlights what I need to have in the future. If I can refer to a data frame for course, assessment names, and rubric rows by simply specifying a program name, then this process is entirely automatic from data.
+
+I might as well standardize the input files even more... Anyway, now I just need to have a full list of those identifiers.
+
+### Thoughts
+Probably I can be more relaxed about preserving the data sources. After all, the important one is D2L outcome data. Other things are more or less "manually handled" anyway.
+
+Part of the reason is those files are really really small (~150 or so rows). If I edit the survey data - I did that anyway for non-rubric data - to have standardized course names and assessment names, I can skip a fair number of steps. Moreover, hard-coded mapping in scripts is no better than manually handled spreadsheet...
+
+Now, rubric rows are different... They are only available in D2L outcome data. 1) it's much larger (>18k rows) and 2) contents are not explicitly entered in survey. Check each from data and edit by substitution make more sense.
+```{r}
+clist <- list(
+  "Accounting" = c("ACC 331", "ACC 331", NA, "ACC 441"),
+  "Business Core" = c(NA, rep("BUS 499", 10)),
+  "Economics" = c("ECO 302"),
+  "HR" = rep("HR 400", 4),
+  "Management" = rep("BUS 345", 4),
+  "MBA" = c("ACC 711", "ECO 716", "FIN 711", "HR 711", NA, "MKT 711", NA, "BUS 771")
+  )
+alist <- list(
+  "Accounting" = c("Exam", "Exam", NA, "Exam"),
+  "Business Core" = c(NA, "Annotated Bibliography", "Company Profile",
+                      "Goventure Aar", "Company Profile",
+                      "Company Profile", "Ethics Case Paper",
+                      "Ethics Case Paper", "Goventure Aar",
+                      "Development Plan"),
+  "Economics" = c("Exam"),
+  "HR" = c("Paper #1", "Simulation Paper #2", 
+                                  "Simulation Paper 3", "Peer evaluations"),
+  "Management" = c("Ethics Final Paper", "Ethics Final Paper", "Ethics Final Paper", "Ethics Reflection"),
+  "MBA" = c("Managerial Accounting Research", "Exam", "Exam", "Exam", "Exam", "Exam", "Exam", "Exam")
+  )
+olist <- list(
+  "Accounting" = c("ACCOUNTING LO 1", "ACCOUNTING LO 2", NA, "ACCOUNTING LO 4"),
+  "Business Core" = c(NA, "Plo2", "Plo3", "Plo4", "5[a|b|c|d]", "6[e|f|g]",
+                      "Plo7", "Plo8", "Plo9", ".*"),
+  "Economics" = c(".*"),
+  "HR" = c("Organizational Types",
+                                  "(Organizational Types)|(Organizational Strategy)",
+                                  "Hr Law", ".*"),
+  "Management" = c("Plo1", "Plo2", "Plo7", ".*"),
+  "MBA" = rep(".*", 8)
+  )
+plist <- list("Accounting" = 1:4,
+              "Business Core" = 1:10,
+              "Economics" = c(2),
+              "HR" = 1:4,
+              "Management" = 1:4,
+              "MBA" = 1:8
+              )
+```
+
+```{r}
+pname <- "Economics"
+lres <- get_outcomes(pname, clist[[pname]], alist[[pname]], olist[[pname]], plist[[pname]])
+
+out <- get_output(pname, lres)
+knitr::kable(out[[1]], dig=2)
+print(out[[2]])
+
+```
+
+
+```{r}
+pname <- "HR"
+lres <- get_outcomes(pname, clist[[pname]], alist[[pname]], olist[[pname]], plist[[pname]])
+
+out <- get_output(pname, lres)
+knitr::kable(out[[1]], dig=2)
+print(out[[2]])
+```
+
+```{r}
+pname <- "Management"
+lres <- get_outcomes(pname, clist[[pname]], alist[[pname]], olist[[pname]], plist[[pname]])
+
+out <- get_output(pname, lres)
+knitr::kable(out[[1]], dig=2)
+print(out[[2]])
+```
+
+```{r}
+pname <- "MBA"
+lres <- get_outcomes(pname, clist[[pname]], alist[[pname]], olist[[pname]], plist[[pname]])
+out <- get_output(pname, lres)
+knitr::kable(out[[1]], dig=2)
+print(out[[2]])
+
+past %>% filter(Program == "MBA")
+# Internal Formative
+# Threshold differs
+```
+
+
+# Data Edit
+Created a new Excel file with edited input data.
+
+```{r}
+fn <- "data/Assessment Survey Responses.xlsx"
+survey <- read_excel(fn, "Edited")
+head(survey)
+```
+
+I can use the non-rubric data from this, but they are not cleaned yet. Filter them out.
+```{r}
+survey2 <- survey %>%
+  filter(`I graded this assessment using a rubric on D2L.` == "Yes",
+         !Drop)
+head(survey2)
+```
+
+```{r}
+levels(factor(survey2$Course))
+```
+
+```{r}
+levels(factor(survey2$PLO))
+```
+
+```{r}
+levels(factor(survey2$Assessment))
+```
+
+Much cleaner!
+
+Also, some notes there.
+```{r}
+levels(factor(survey2$`Follow up`))
+```
+
+After having learned about the data, it was easy to edit the assessment names. The ability to view multiple rows at once helped me as well, taking advantage of comments.
+
+Now, if I use this file, then I can skip `drop-entries` and `clean course` sections of `read.R` and `clean-assessment` of `munge.R`.
+
+## Update Scripts
+Let's give it a try:
+```{r}
+library(tidyverse)
+library(readxl)
+
+## ---- import-d2l ----
+fn <- "data/Rubrics.xlsx"
+df <- read_xlsx(fn) %>%
+  mutate(across(c(RubricId:Name, LevelAchieved), factor),
+         IsScoreOverridden = (IsScoreOverridden == "True"))
+```
+
+
+```{r}
+## ---- import-survey ----
+fn <- "data/Assessment Survey Responses.xlsx"
+survey <- read_excel(fn, "Edited")
+qs <- names(survey)
+#cat(str_sub(qs, 1, 8), sep = "\n")
+# Not unique... yet
+nms <- c("ID" = "ID",
+         "Drop" = "Drop",
+         "Start ti" = "Start",
+         "Completi" = "Complete", 
+         "Email" = "Email",
+         "Name" = "Instructor",
+         "In which" = "Semester",
+         "Course A" = "Course.Section.Original",
+         "Course" = "Course",
+         "Section" = "Section",
+         "What is " = "Assessment.Original",
+         "Assessme" = "Assessment",
+         "Follow u" = "Follow up",
+         "I graded" = "Rubric",
+         "Copy and" = "URL",
+         "Analysis" = "Analysis.Rubric",
+         "Action f" = "Action.Rubric",
+         "What is " = "PLO.Original",
+         "PLO" = "PLO",
+         "What is " = "n.original",
+         "n" = "n",
+         "If this " = "np.original",
+         "np" = "np",
+         "Analysis" = "Analysis.Non.Rubric",
+         "Action f" = "Action.Non.Rubric")
+names(survey) <- nms
+
+# Non rubric data are not relevant for D2L output data
+non <- survey %>%
+  filter(Rubric == "No", !Drop) %>%  select(-c(URL:Action.Rubric))
+survey <- survey %>%
+  filter(Rubric == "Yes", !Drop) %>%  select(ID:PLO)
+
+```
+
+```{r}
+## ---- extract-rubricid ----
+x <- str_extract_all(survey$URL, "rubricId=[0-9]{6}", simplify=TRUE)
+survey$RubricId <- factor(str_extract_all(x, "[0-9]{6}", simplify=TRUE))
+```
+
+
+```{r}
+tbl <- table(survey$RubricId)
+dups <- tbl[tbl > 1]
+dups
+res[res$RubricId==names(dups)[1], ]
+# Drop 22
+res[res$RubricId==names(dups)[2], ]
+# Modify 41
+res[res$RubricId==names(dups)[3], ]
+# Drop 66 resubmit?
+res[res$RubricId==names(dups)[4], ]
+# Drop 65 ?
+res[res$RubricId==names(dups)[5], ]
+# Drop 61 ?
+res[res$RubricId==names(dups)[6], ]
+# Drop 62 ?
+res[res$RubricId==names(dups)[7], ]
+# Drop 114 ?
+res[res$RubricId==names(dups)[8], ]
+# Different sections but provided same ID. Actual error. Drop 37.
+res[res$RubricId==names(dups)[9], ]
+# Drop 64 ?
+res[res$RubricId==names(dups)[10], ]
+# Drop 63 ?
+
+# Double check comments
+
+id.drop <- c(22, 66, 65, 61, 62, 114, 37, 64, 63)
+df2 <- survey %>% filter(!ID %in% id.drop)
+head(df2)
+```
+
+
+
+```{r}
+## ---- merge ----
+names(df2)
+dim(df)
+mdf <- df %>%
+  left_join(df2 %>%
+              select(RubricId, Instructor, Semester,
+                     Course, Section, Course.Section.Original,
+                     Assessment, Assessment.Original,
+                     Rubric, PLO.Original, PLO), by="RubricId")
+dim(mdf)
+```
+
+
+```{r}
+## ---- import supplementary ----
+past <- read_excel("data/Assessment Data Main.xlsx", sheet = "Main")
+map <- read_excel("data/Assessment Data Main.xlsx", sheet = "Mapping")
+#non <- read_excel("data/Non Rubric Data.xlsx")
+#non <- non %>% transmute(
+#  Instructor = Name,
+#  Semester = `In which semester is this course?`,
+#  Course = paste(Program, Course, Section),
+#  `Assessment Name` = `What is the name of the assessment you used? (e.g., International Trade Case Study, Final Exam Question 3, etc.)`,
+#  `Program`, `PLO Mixed`=PLO,
+#  n = `What is the total number of students that completed the assessment tool for your second learning objective?`,
+#  pass_n = `If this is an undergraduate assessment, how many students achieved a rubric level of "basic" or scored 70% or better on the assessment?  If this is an MBA formative assessment, how many students s...`,
+#  Interpretation = `Analysis/Interpretation of Results for your learning objective: Briefly answer the question, What do your assessment data tell us?`,
+#  Action = `Action for improvement: Briefly explain how you will use the assessment results to make improvements to your course or curriculum.2`)
+```
+
+
+Then, `munge`. Get rid of all of the assessment name editing codes.
+```{r}
+pttrn.eco201.n <- c("^Arguments For Protection$"="Arguments For Protectionism",
+                    "^Citations$"="Citations/References",
+                    "^Structure$"="Structure/Clarity",
+                    "^Winners/Losers$"="Winners And Losers",
+                    "^Writing: Citations$"="Writing: Citations/References")
+pttrn.eco202.n <- 
+  c("^Data Collection$" = "Part 1: Data Collection",
+    "^Time-Series Graphs$" = "Part 1: Time Series Plots",
+    "^Explain Variable Movements$" = "Part 2: Explain Variable Movements",
+    "^Short-Run And Long-Run Perspectives$" = "Part 2: Short-Run And Long-Run Perspectives",
+    "^Compare And Contrast$" = "Part 2: Compare And Contrast",
+    "^Citations$" = "Writing: Citations",
+    "^Grammar$" = "Writing: Grammar",
+    "^Structure$" = "Writing: Structure")
+pttrn.name <- c(pttrn.eco202.n, pttrn.eco201.n)
+
+mdf <- mdf %>%
+  mutate(Name = str_to_title(str_remove(mdf$Name, '^"')),
+         Name = str_replace_all(Name, pttrn.name))
+summary(mdf)
+```
+
+The rest encounters no change because it is all about D2L outcome data, which are not altered by the change in survey results.
+```{r}
+### ---- standardize-achievement ----
+mdf$LevelAchieved <-
+  str_replace_all(mdf$LevelAchieved,
+                  fixed("Unsatisactory (<60%)"), "Unsatisfactory") # Fix a typo
+
+achievements1 <- c("Unsatisfactory", "Developing", "Basic", "Proficient", "Advanced")
+achievements2 <- c("Unacceptable", "Rudimentary", "Fair", "Good", "Excellent")
+names(achievements2) <- achievements1 # Named list as dictionary
+pttrn <- paste(c(achievements1, achievements2), collapse = "|")
+
+x <- levels(mdf$LevelAchieved)
+
+mdf <- mdf %>% mutate(
+  LevelAchieved.Original = LevelAchieved,
+  LevelAchieved = str_extract(mdf$LevelAchieved, pttrn))
+mdf$LevelAchieved <- str_replace_all(mdf$LevelAchieved, achievements2)
+mdf$LevelAchieved <- ordered(mdf$LevelAchieved, levels = achievements2)
+
+summary(mdf$LevelAchieved)
+```
+
+
+```{r}
+## ---- new-variables ----
+mdf <- mdf %>% mutate(
+  Met.UND = case_when(
+    is.na(LevelAchieved) ~ "Missing",
+    LevelAchieved == "Excellent" | LevelAchieved == "Good" |
+      LevelAchieved == "Fair" ~ "Met",
+    LevelAchieved == "Rudimentary" | LevelAchieved == "Unacceptable" ~ "Not",
+    TRUE ~ "Other"),
+  Met.GRD = case_when(
+    is.na(LevelAchieved) ~ "Missing",
+    LevelAchieved == "Excellent" | LevelAchieved == "Good" ~ "Met",
+    LevelAchieved == "Fair" | LevelAchieved == "Rudimentary" |
+      LevelAchieved == "Unacceptable" ~ "Not",
+    TRUE ~ "Other"),
+  Online = grepl("GW", Section),
+  Met.UND.bin = Met.UND == "Met",
+  Met.GRD.bin = Met.GRD == "Met"
+  )
+table(mdf$LevelAchieved, mdf$Met.UND, useNA = "ifany")
+```
+
+## Follow Up to the Updates
+How does the code in analysis change? Shouldn't be much other than variable names... Done.
+
+## Examine Data
+```{r}
+# Undergrad focus for now
+tbl1 <- mdf %>% filter(str_detect(Name, "Major|Minor", negate = TRUE)) %>%
+  group_by(Course, Assessment, Name, PLO) %>%
+  summarise(Met = mean(Met.UND.bin), n = n())
+tbl1
+```
+
+Non-rubric data are collected at `Section` level and as shares of students who achieved goals. Use the class size as a weight to have the proper aggregation. Moreover, keep the `PLO Mixed` column for identifying apparently-identical assessments (e.g. different parts of exams).
+```{r}
+tbl2 <- non %>%
+  group_by(Course, Assessment, PLO) %>%
+  summarise(Met = weighted.mean(x = np/n, w = n, na.rm = TRUE),
+            n = sum(n, na.rm = TRUE), Name = "NA")
+tbl3 <- tbl1 %>% bind_rows(tbl2)
+summary(tbl3)
+```
+
+Mappings are incorporated into the survey.
+
+
+```{r}
+table(tbl3$PLO)
+```
+
+```{r}
+tbl3 %>% filter(PLO == "ACC 4")
+```
+
+Need to have non-rubric data be consistent and contains PLO column. ...Done.
+Retrospectively edited the source data file and updated the codes above.
+
+## Outcomes?
+Modify the function:
+``` r
+cname <- "BUS 499"
+aname <- "Annotated Bibliography"
+oname <- "Plo2"
+plo <- 2
+tbl3 %>% filter(Course == cname, `Assessment Name` == aname,
+                str_detect(Name, oname)) %>% 
+  summarize(mean = mean(Met), n = min(n)) %>% mutate(PLO = plo)
+```
+
+I *can* summarize by group.
+```{r}
+tbl3 %>% group_by(PLO) %>% 
+  summarize(mean = mean(Met), n = min(n))
+
+```
+
+Really cool. But there's still a problem. Not all the assessments use all the rubric rows. I need to select rubric rows accordingly. (Those PLO markers are placed in the survey data, where each row is at the assessment level.)
+
+```{r}
+table(tbl3$PLO)
+tbl3 %>% filter(PLO == "ACC 1", str_detect(Name, "NA"))
+tbl3 %>% filter(PLO == "ACC 2", str_detect(Name, "NA"))
+tbl3 %>% filter(PLO == "BUS 2", str_detect(Name, "Plo2"))
+tbl3 %>% filter(PLO == "BUS 5, BUS 6", str_detect(Name, "5[a|b|c|d]")) %>% 
+  ungroup() %>% 
+  summarize(Met = mean(Met), n = min(n)) %>% mutate(PLO = "BUS 5")
+tbl3 %>% filter(PLO == "BUS 5, BUS 6", str_detect(Name, "6[e|f|g]")) %>% 
+  summarize(Met = mean(Met), n = min(n)) %>% mutate(PLO = "BUS 6")
+tbl3 %>% filter(PLO == "BUS 5, BUS 6", str_detect(Name, "5[a|b|c|d]"))
+```
+
+```{r}
+get_outcome <- function(plotag, rrow, program, plo){
+  if(is.na(plotag)){return(NA)}
+  tbl3 %>% filter(PLO == plotag, str_detect(Name, rrow)) %>% ungroup() %>% 
+    summarize(Met = mean(Met), n = min(n)) %>%
+    mutate(Program = program, PLO = plo)
+}
+get_outcome(plotag = "BUS 5, BUS 6", rrow = "5[a|b|c|d]",
+            program = "Business Core", plo = 5)
+
+
+```
+~~The rest follows.~~
+
+```{r}
+#levels(factor(tbl3$PLO))
+list.plotags <- list("Accounting" = c("ACC 1", "ACC 2", NA, "ACC 4"),
+          "Business Core" = c(NA, "BUS 2", "BUS 3", "BUS 4, BUS 9",
+                              "BUS 5, BUS 6", "BUS 5, BUS 6",
+                              "BUS 7, BUS 8", "BUS 7, BUS 8", "BUS 4, BUS 9",
+                              "BUS 10"),
+          "Economics" = c("ECO 2"),
+          "HR" = paste("HR", 1:4),
+          "Management" = c(rep("MGT 1, MGT 2, MGT 3", 3), "MGT 4"),
+          "MBA" = paste("MBA", 1:8)
+          )
+list.rrows <- list(
+  "Accounting" = rep("NA", 4),
+  "Business Core" = c(NA, "Plo2", "Plo3", "Plo4", "5[a|b|c|d]", "6[e|f|g]",
+                      "Plo7", "Plo8", "Plo9", ".*"),
+  "Economics" = c(".*"),
+  "HR" = c("Organizational Types",
+           "(Organizational Types)|(Organizational Strategy)",
+           "Hr Law", ".*"),
+  "Management" = c("Plo1", "Plo5", "Plo7", ".*"),
+  "MBA" = rep(".*", 8)
+  )
+# MIS, MKT
+```
+
+
+
+
+```{r}
+get_outcomes <- function(program){
+  # Wrapper to return a combined results for each program
+  lres <- list()
+  plotags <- list.plotags[[program]]
+  rrows <- list.rrows[[program]]
+  for(i in 1:length(plotags)){
+    lres[[i]] <- get_outcome(plotags[i], rrows[i], program, i)
+  }
+  lres
+}
+
+merge_outcomes <- function(lres){
+  # Wrapper function to merge with the historical assessment results
+  lres <- lres[!is.na(lres)] # Missing assessment returns NA
+  x <- bind_rows(lres)
+  x <- x %>% ungroup() %>%
+    transmute(`Academic Year` = rep(2019, nrow(x)),
+              `Learning Objective Number` = PLO,
+              `Outcome` = Met, `Sample Size` = n )
+  
+  y <- past %>%
+    filter(Program == pname, `Assessment Type` == "Internal",
+           str_detect(Source, "2020")) %>% 
+    select(`Academic Year`, `Learning Objective Number`,
+           Outcome, `Sample Size`)
+  out <- bind_rows(x, y)
+  out
+}
+
+getmerge_outcomes <- function(program){
+  lres <- get_outcomes(program)
+  merge_outcomes(lres)
+}
+
+getmerge_outcomes("Accounting")
+```
+
+```{r}
+getmerge_outcomes("Business Core")
+
+```
+
+
+```{r}
+getmerge_outcomes("Economics")
+```
+
+```{r}
+getmerge_outcomes("HR")
+```
+
+Clearly, not working. The inconsistency of "HR" vs "HRM" is confusing.
+
+```{r}
+getmerge_outcomes("Management")
+```
+
+
+```{r}
+getmerge_outcomes("MBA")
+```
+
+Appear to be working (mostly), but I know it needs to use grad level objective.
+
+# Next
+Much update to initial scripts. Wrap it up here and update them.

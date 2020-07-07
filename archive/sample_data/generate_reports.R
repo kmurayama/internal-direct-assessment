@@ -1,8 +1,5 @@
 library(tidyverse)
 
-# Make a set of report
-knitr::knit("report/index.Rmd")
-
 load("out/rubricdata.RData")
 cRubricId <- levels(as.factor(sdf$RubricId))
 
@@ -15,5 +12,7 @@ reports <- tibble(
 )
 reports %>%
   pwalk(rmarkdown::render, input = "report/report.Rmd")
+save(reports, file = "out/reports.RData")
 
-#save(reports, file = "reports.RData")
+rmarkdown::render("report/index.Rmd")
+#Need to address the issue with output location

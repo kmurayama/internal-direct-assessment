@@ -1,0 +1,443 @@
+---
+title: "Note to Inspect Rubric Data 2 Extra"
+output:
+  html_document:
+    toc: yes
+    toc_float:
+      collapsed: no
+    df_print: paged
+    code_folding: hide
+  html_notebook:
+    toc: true
+    toc_float:
+      collapsed: false
+    theme: paper
+date: 6/28/2020
+---
+
+
+# Objective
+In Note 2, there are a few classes that I couldn't clean up right away. Let's work on those.
+
+# Set up
+
+```{r, echo=FALSE, include=FALSE}
+#knitr::opts_chunk$set(message = FALSE, warning = FALSE)
+library(tidyverse)
+library(readxl)
+```
+
+## Import D2L Rubric Outcomes
+```{r import-d2l}
+fn <- "data/Rubrics.xlsx"
+df <- read_xlsx(fn) %>%
+  mutate(across(c(RubricId:Name, LevelAchieved), factor),
+         IsScoreOverridden = (IsScoreOverridden == "True"))
+```
+
+## Import Survey
+As before, import the first 12 columns that are relevant to rubrics. Alter lengthy column names for convenience.
+```{r import-survey}
+fn <- "data/Tracking of Assessment of Student Learning Outcomes Data Collection.xlsx"
+res <- read_excel(fn, sheet = "Response0602")
+res <- res[res$`I graded this assessment using a rubric on D2L.` == "Yes", ]
+res <- res[1:12]
+
+qs <- names(res)
+responder.info <- c("ID", "Started", "Completed", "Email", "Name")
+course.info <- c("Semester", "Course")
+assessment.info <- c("Assessment Name", "Rubric Usage")
+rubric.info <- c("URL", "Intrepretation", "Action for Improvement")
+names(res) <- c(responder.info, course.info, assessment.info, rubric.info)
+```
+
+## Clean Up Survey
+Clean up the survey data before merging to the rubric outcome, which has a lot more rows.
+Before following the procedure from previous notes, let's remove some rows that are obviously added by error.
+
+1. BUS499 by Mark. Student numbers appear split, but there's no obvious error. "Company Profile" and "Course Profile" appear to be the same. Both are from Fall 2019. "Final Company Paper" and "Final Company Profile" are same as "Company Profile" are from 2020. Some changes can be confirmed by referencing Beth's: "Company Profile" is present as is; only paper there is "Ethics Case Paper", which might be the "Fianal Company Paper" in Mark's. Meanwhile, Mark's 2020 course apparently lacks "Annotated Bibliography", "Development Plan", and "GoVenture AAR". *Check scores for "Ethics Case Paper" and "Final Company Paper" and standardize names* and *Check if those several assignments have been dropped in spring 2020.*
+2. BUS499-GS1 by Beth. Suppose it's a typo for GW1. *Fix the typo.* ...Done.
+3. FIN-301,302. 302-01 by Chris has `rubricid` of `142052`. 301-002 by Nan has `rubricid` of `133643`, `133645`, and `133646`; although there are some typos. "Signature Assignment 3" should be from FIN301-002 like other rows. This entry also has the same `rubricid` as "Signature Assignment 4". *Check the rubric request list.*
+4. MGT300 by Beth. Entered earliest and we changed the survey with her feedback. ID 1 & 2 are Film Case and Burt's Bee. She re-entered those later, so *simply drop those early entries.* ...Done.
+5. MKT300 by Rich. This set of entries is a mystery. Probably, I need to talk to him.
+
+Course names have some minor errors. It'll be easier if correcting them and split its components for later use.
+```{r clean-course}
+x <- res$Course
+x <- str_replace(x, "GW[I|!]", "GW1") # Replace some typos
+x <- str_replace(x, "GS1", "GW1") # Replace some typos
+x <- str_remove(x, "[0-9]{4,}") # Remove leading time stamp
+x <- str_replace(x, "BS[U]?", "BUS") # Replace less critical typo
+x <- str_replace(x, "-01", "-001") # Replace less critical typo
+
+cid1 <- str_match(x, "[A-Z]{2,3}") # Extract course program (e.g. BUS, MKT)
+cid2 <- str_extract_all(x, "(CD|G[WS])?[0-9]{1,3}", simplify = TRUE) # Extract
+res$Course <- paste(cid1, cid2[, 1]) # Then merge for course id e.g. MGT 300
+res$Section <- paste(cid1, cid2[, 1], cid2[, 2]) # Likewise, e.g. MGT 300 001
+
+res <- res[res$ID != 1 & res$ID != 2, ] # Drop error entries
+```
+
+Assessment names shall be used 'as is', but need to check for errors. There are two changes: Drop Ed's entry. Split Neeley's. (Code is overly complicated. Do it manually?)
+```{r clean-assessment}
+res$`Assessment Name` <- str_to_title(res$`Assessment Name`) # Good enough
+assess.name <- res[res$ID == 41, c("Assessment Name", "URL")] # Keep double entry 
+anames <- str_split(assess.name$`Assessment Name`, ",", simplify = TRUE)
+urls <- str_split(assess.name$URL, "Burts", simplify = TRUE)
+
+x <- res[res$ID == 41, ]
+x$ID <- nrow(res)
+x[c("Assessment Name", "URL")] <- list(anames[2], urls[2])
+res[res$ID == 41, c("Assessment Name", "URL")] <- list(anames[1], urls[1])
+res[res$ID == 159, ] <- x # Replace Ed's entry with the modified Neeley's
+```
+
+Lastly, prepare for merge. Need to have unique IDs.
+```{r extract-rubricid}
+x <- str_extract_all(res$URL, "rubricId=[0-9]{6}", simplify=TRUE)
+res$RubricId <- factor(str_extract_all(x, "[0-9]{6}", simplify=TRUE))
+```
+```{r, eval=FALSE}
+tbl <- table(res$RubricId)
+dups <- tbl[tbl > 1]
+res[res$RubricId==names(dups)[1], ]
+# Drop 2, 22
+res[res$RubricId==names(dups)[2], ]
+# Drop 41 (see the note)
+res[res$RubricId==names(dups)[3], ]
+# Drop 77 Why resubmit?
+res[res$RubricId==names(dups)[4], ]
+# Drop 71 ?
+res[res$RubricId==names(dups)[5], ]
+# Drop 1
+res[res$RubricId==names(dups)[6], ]
+# Drop 83 ?
+res[res$RubricId==names(dups)[7], ]
+# Drop 88 ?
+res[res$RubricId==names(dups)[8], ]
+# Different sections but provided same ID. Actual error. Drop 116.
+res[res$RubricId==names(dups)[9], ]
+# Drop 37
+res[res$RubricId==names(dups)[10], ]
+# Drop 93 ?
+res[res$RubricId==names(dups)[11], ]
+# Drop 92 ?
+```
+```{r}
+id.drop <- c(2, 22, 41, 77, 71, 1, 83, 88, 116, 37, 93, 92)
+res <- res %>% filter(!ID %in% id.drop)
+```
+
+And trim some variables and format.
+```{r }
+res <- res %>%
+  mutate(across(c(ID, Email:Semester, Section:Course), factor) )
+```
+
+## Merge
+Merge the survey data into the D2L.
+```{r}
+dim(df)
+df <- df %>%
+  left_join(res %>% select(RubricId, Instructor = Name, Course,
+                           `Assessment Name`, Semester,
+                           Section, Course), by="RubricId")
+dim(df)
+```
+
+# Munge Data
+Summary of the data:
+```{r}
+summary(df)
+```
+
+`113393` missing course ID, Semester, etc.
+
+## Separate
+Data are mixture of assessment and attributes.
+
+```{r}
+list.levels <- levels(df$LevelAchieved)
+list.levels
+```
+
+### Drop this
+Separate those two by pattern matching.
+```{r}
+achievements1 <- c("Unsatisfactory", "Developing", "Basic", "Proficient", "Advanced")
+achievements2 <- c("Unacceptable", "Rudimentary", "Fair", "Good", "Excellent")
+pttrn <- paste(c(achievements1, achievements2), collapse = "|")
+
+#mdf <- df[grepl(pttrn, df$LevelAchieved), ]
+#sdf <- df[!grepl(pttrn, df$LevelAchieved), ]
+#mdf$LevelAchieved <- droplevels(mdf$LevelAchieved)
+#sdf$LevelAchieved <- droplevels(sdf$LevelAchieved)
+mdf <- df
+```
+
+
+
+Moreover, standardize levels. As seen in Note 1, those levels can be inconsistent even with the same instructor (e.g. me) across semesters.
+```{r}
+mdf <- mdf %>% mutate(
+  LevelAchieved.Original = LevelAchieved,
+  LevelAchieved = str_extract(mdf$LevelAchieved, pttrn))
+names(achievements2) <- achievements1 # Use named list with str_replace_all
+mdf$LevelAchieved <- str_replace_all(mdf$LevelAchieved, achievements2)
+mdf$LevelAchieved <- ordered(mdf$LevelAchieved, levels = achievements2)
+
+table(mdf$LevelAchieved.Original)
+table(mdf$LevelAchieved)
+```
+
+## New Variables
+Add the achievement indicator variables for undergrad and grad levels.
+```{r}
+mdf <- mdf %>% mutate(
+  Met.UND = case_when(is.na(LevelAchieved) ~ "Missing",
+    LevelAchieved == "Excellent" | LevelAchieved == "Good" |
+      LevelAchieved == "Fair" ~ "Met",
+    TRUE ~ "Not Met"),
+  Met.GRD = case_when(is.na(LevelAchieved) ~ "Missing",
+    LevelAchieved == "Excellent" | LevelAchieved == "Good" ~ "Met",
+    TRUE ~ "Not Met")
+  )
+table(mdf$LevelAchieved, mdf$Met.GRD)
+```
+
+## Critrion Names
+Criterion names have some strange issues. Some contains a double quotation mark (with escaped). This can be confirmed in the original data. 
+Also, some appear to be incomplete, only having learning objective labels.
+
+How can I confirm they are error or not? Check known rubrics? Ask Jon?
+
+```{r}
+levels(mdf$Name)
+```
+
+At least, it's easy to deal with the quotation mark.
+```{r}
+mdf$Name <- as.factor(str_remove(mdf$Name, '^"'))
+head(levels(mdf$Name))
+```
+
+Let's deal with them case by case for now. Then I can find a solution later.
+
+And... I've processed each case (course) in Note 2. Now, I'll handle the cases left for more investigations.
+
+# Investigate
+
+## BUS 499
+Review what I checked.
+```{r}
+tdf <- mdf %>% filter(Course == "BUS 499")
+tdf <- droplevels(tdf)
+levels(as.factor(tdf$`Assessment Name`))
+```
+```{r}
+knitr::kable(table(tdf$`Assessment Name`, tdf$Instructor))
+```
+
+Now, check the score ranges to compare assessments.
+Check scores for "Ethics Case Paper" and "Final Company Paper".
+```{r}
+ggplot(tdf) + geom_boxplot(aes(Score)) + facet_wrap(vars(`Assessment Name`))
+```
+
+Both are upt to score of 10, athough that's true for other assignments.
+
+```{r}
+with(tdf %>% filter(Semester == "Fall 2019") %>% droplevels(.),
+     knitr::kable(table(`Assessment Name`, Instructor))
+     )
+```
+
+Can I identify by criteria?
+```{r}
+knitr::kable(table(tdf$`Assessment Name`, tdf$Name))
+```
+
+- Course Profile?
+- Reflection and Development Plan?
+- Simulation AAR?
+
+Course Profile has "PLO2 Support analysis with appropriate scholarly and professional sources 5%" which is seen commonly in (both ver of ) "Company Profile [(Final Paper)]", "Final Company Paper" and "Final Company Profile". Perhaps Mark used different ones over sections?
+
+
+```{r}
+with(tdf %>% filter(Semester == "Fall 2019", Instructor == "Mark Lennon") %>% droplevels(.),
+     knitr::kable(table(`Assessment Name`, Section))
+     )
+```
+
+Yes, "Company Profile" (001) == "Course Profile" (002). Other two are simply not present.
+
+Next,
+```{r}
+with(tdf %>% filter(Semester == "Spring 2020") %>% droplevels(.),
+     knitr::kable(table(`Assessment Name`, Instructor))
+     )
+```
+
+- Final Company Paper?
+- (Final Company Profile?)
+
+"Final Company Paper" == "Company Profile" == "Final Company Profile".
+
+So, here's the edit. Standardize those names into Beth's name, "Company Profile (Final Paper)".
+
+```{r edit-bus499}
+profile <- "(^Final Company Paper$)|(^Company Profile$)|(^Final Company Profile$)|(^Course Profile$)"
+profile.new <- "Company Profile (Final Paper)"
+aar <- "Simulation After-Action Report \\(Also Submitted To Gen Ed For Evidence Of Problem Solving\\)"
+aar.new <- "Goventure Aar"
+
+tdf <- tdf %>% mutate(
+  `Assessment Name` = str_replace(`Assessment Name`, profile, profile.new),
+  `Assessment Name` = str_replace(`Assessment Name`, aar, aar.new))
+knitr::kable(table(tdf$`Assessment Name`))
+tdf <- tdf %>% mutate(Online = grepl("GW", Section))
+tdf$Met.bin <- case_when(tdf$Met.UND == "Met" ~ 1, TRUE ~ 0)
+```
+
+
+Check:
+```{r}
+tdf %>% group_by(Name, Online) %>% summarise(Share = mean(Met.UND == "Met"))
+```
+
+Forgot that. Need to fix criteria as well.
+
+```{r}
+l <- levels(as.factor(tdf$`Assessment Name`))
+print(paste("For,", l[[1]]))
+x <- tdf %>% filter(`Assessment Name` == l[[1]])
+x <- droplevels(x)
+levels(x$Name)
+```
+```{r}
+print(paste("For,", l[[2]]))
+x <- tdf %>% filter(`Assessment Name` == l[[2]])
+x <- droplevels(x)
+levels(x$Name)
+```
+
+```{r}
+print(paste("For,", l[[3]]))
+x <- tdf %>% filter(`Assessment Name` == l[[3]])
+x <- droplevels(x)
+levels(x$Name)
+```
+
+```{r}
+print(paste("For,", l[[4]]))
+x <- tdf %>% filter(`Assessment Name` == l[[4]])
+x <- droplevels(x)
+levels(x$Name)
+```
+```{r}
+print(paste("For,", l[[5]]))
+x <- tdf %>% filter(`Assessment Name` == l[[5]])
+x <- droplevels(x)
+levels(x$Name)
+```
+```{r}
+print(paste("For,", l[[6]]))
+x <- tdf %>% filter(`Assessment Name` == l[[6]])
+x <- droplevels(x)
+levels(x$Name)
+```
+
+So... there's no issue. There are just so many rows.
+
+
+```{r}
+ggplot(tdf, aes(Online, Met.bin)) + stat_summary(fun.y = mean, geom = "bar") + facet_wrap(vars(Name), ncol = 6)
+```
+
+## FIN 301, 302
+`rubricid` of `133643`, `133645`, `133646` and `142052` are in the request list. Let's request Jon to retrieve those. But, before that, ask Nan for the correct rubric for "Signature Assignment 3" or "4".
+
+## MGT 300
+Two rows have been dealt with already.
+
+```{r}
+tdf <- mdf %>% filter(Course == "MGT 300")
+tdf <- droplevels(tdf)
+#table(tdf$Name, tdf$`Assessment Name`)
+levels(tdf$Name)
+```
+```{r}
+table(tdf$Instructor)
+```
+The number of rows for Neeley's a bit strange.
+```{r}
+tdf[tdf$Instructor=="Neeley Shaw", c("RubricId", "UserId")]
+```
+One student? > Fixed. 30 students now.
+
+Original data has more rows fo `113397`. What's happening? > Fixed.
+
+```{r}
+summary(df[df$RubricId=="113397", ])
+```
+
+Level Achieved are missing, while scores are there.
+(Similar to `113393` that are removed. Bring them back in data cleaning.)
+Those are filtered out into another data set. *Update the code to keep the original variable* ...Done.
+
+In the next step, I'll need to sort out "Majors" out in visualization.
+
+Next, deal with criterion names.
+```{r}
+knitr::kable(table(tdf$Name, tdf$Instructor))
+```
+
+```{r}
+knitr::kable(table(tdf$Name, tdf$RubricId))
+```
+```{r}
+knitr::kable(table(tdf$Name, tdf$Semester))
+```
+
+Perhaps, some are dropped in Spring 2020. That would make more sense.
+```{r}
+knitr::kable(table(tdf$Instructor, tdf$Semesterter))
+```
+
+Neely taught this class only in Fall 2019, while Beth had a chance to update it on her own in Spring 2020.
+
+## MKT 300
+I will need to talk with Rich for this... Thought let's try to clean up irrelevant objectives.
+
+
+```{r}
+tdf <- mdf %>% filter(Course == "MKT 300")
+tdf <- droplevels(tdf)
+#table(tdf$Name, tdf$`Assessment Name`)
+levels(as.factor(tdf$Name))
+```
+```{r}
+knitr::kable(table(tdf$Name, tdf$`Assessment Name`))
+```
+
+Actually, most belong to unique assignments. I can just use them as they are for now.
+
+```{r edt-mkt300}
+tdf <- tdf %>% mutate(Online = grepl("GW", Section))
+tdf$Met.bin <- case_when(tdf$Met.UND == "Met" ~ 1, TRUE ~ 0)
+```
+
+```{r}
+tdf %>% group_by(Name, Online) %>% summarise(Share = mean(Met.UND == "Met"))
+```
+
+```{r}
+ggplot(tdf, aes(Online, Met.bin)) + stat_summary(fun.y = mean, geom = "bar") + facet_wrap(vars(Name), ncol = 6)
+```
+
+
+# Next?
+Combine those edit for `Name` and `Assessment Name` into the data munging. Proceed to analysis, making the summary numbers for Standard 4.
+
+Meanwhile, ask Jon about the missing FIN courses.

@@ -1,0 +1,782 @@
+---
+title: "Note to Inspect Rubric Data 2"
+author: Kentaro Murayama
+date: 2020/6/26
+output:
+  html_document:
+    code_folding: hide
+    toc: yes
+    toc_float:
+      collapsed: false
+    number_sections: true
+    theme: paper
+---
+
+```{r, echo=FALSE, include=FALSE}
+#knitr::opts_chunk$set(message = FALSE, warning = FALSE)
+library(tidyverse)
+library(readxl)
+```
+
+# Intro
+Let's sort out the data import and munging. Most problems came from the survey data. As noted in the last note, I can manually edit the file rather than fixing them here. Keep the code neat and use it later for error check. No need for further improvement.
+
+## Import D2L
+First, import D2L data.
+```{r import-d2l}
+fn <- "data/Rubrics.xlsx"
+df <- read_xlsx(fn) %>%
+  mutate(across(c(RubricId:Name, LevelAchieved), factor),
+         IsScoreOverridden = (IsScoreOverridden == "True"))
+```
+
+## Import Survey
+Import the survey. Only the first 12 columns are relevant to those with rubrics.
+```{r import-survey}
+fn <- "data/Tracking of Assessment of Student Learning Outcomes Data Collection.xlsx"
+res <- read_excel(fn, sheet = "Response0602")
+res <- res[res$`I graded this assessment using a rubric on D2L.` == "Yes", ] # Use rubrics?
+res <- res[1:12]
+
+qs <- names(res)
+responder.info <- c("ID", "Started", "Completed", "Email", "Name")
+course.info <- c("Semester", "Course")
+assessment.info <- c("Assessment Name", "Rubric Usage")
+rubric.info <- c("URL", "Intrepretation", "Action for Improvement")
+names(res) <- c(responder.info, course.info, assessment.info, rubric.info)
+```
+
+Now, clean up the file. Course names have some minor errors. It'll be easier if correcting them and split its components for later use.
+```{r clean-course}
+x <- res$Course
+
+x <- str_replace(x, "GW[I|!]", "GW1") # Replace some typos
+x <- str_remove(x, "[0-9]{4,}") # Remove leading time stamp
+cid1 <- str_match(x, "[A-Z]{2,3}")
+cid2 <- str_extract_all(x, "(CD|G[WS])?[0-9]{1,3}", simplify = TRUE)
+res.names <- names(res)
+res <- cbind(res, cid1, cid2)
+names(res) <- c(res.names, paste0("CID", 1:3))
+res$CID1 <- str_replace(res$CID1, "BS[U]?", "BUS") # Replace less critical typo
+res$CID3 <- str_replace(res$CID3, "^01", "001") # Replace less critical typo
+
+```
+
+Assessment names shall be used 'as is', but need to check for errors. There are two changes: Drop Ed's entry. Split Neeley's.
+```{r clean-assessment}
+res$`Assessment Name` <- str_to_title(res$`Assessment Name`) # Good enough
+res[94, ] <- res[26, ]
+
+anames <- str_split(res[94, "Assessment Name"], ",", simplify = TRUE)
+urls <- str_split(res[94, "URL"], "Burts", simplify = TRUE)
+res[26, c("Assessment Name", "URL")] <- c(anames[1], urls[1])
+res[94, c("Assessment Name", "URL")] <- c(anames[2], urls[2])
+```
+
+Lastly, prepare for merge. Need to have unique IDs.
+```{r extract-rubricid}
+x <- str_extract_all(res$URL, "rubricId=[0-9]{6}", simplify=TRUE)
+res$RubricId <- factor(str_extract_all(x, "[0-9]{6}", simplify=TRUE))
+```
+```{r, eval=FALSE}
+tbl <- table(res$RubricId)
+dups <- tbl[tbl > 1]
+res[res$RubricId==names(dups)[1], ]
+# Drop 2, 22
+res[res$RubricId==names(dups)[2], ]
+# Drop 41 (see the note)
+res[res$RubricId==names(dups)[3], ]
+# Drop 77 Why resubmit?
+res[res$RubricId==names(dups)[4], ]
+# Drop 71 ?
+res[res$RubricId==names(dups)[5], ]
+# Drop 1
+res[res$RubricId==names(dups)[6], ]
+# Drop 83 ?
+res[res$RubricId==names(dups)[7], ]
+# Drop 88 ?
+res[res$RubricId==names(dups)[8], ]
+# Different sections but provided same ID. Actual error. Drop 116.
+res[res$RubricId==names(dups)[9], ]
+# Drop 37
+res[res$RubricId==names(dups)[10], ]
+# Drop 93 ?
+res[res$RubricId==names(dups)[11], ]
+# Drop 92 ?
+```
+```{r}
+id.drop <- c(2, 22, 41, 77, 71, 1, 83, 88, 116, 37, 93, 92)
+res <- res %>% filter(!ID %in% id.drop)
+```
+
+And trim some variables and format.
+```{r }
+res <- res %>% select(-Course) %>%
+  mutate(
+    Section = paste(CID1, CID2, CID3),
+    Course = paste(CID1, CID2),
+    across(c(ID, Email:Semester, Section:Course), factor)
+    )
+```
+
+## Merge
+Merge the survey data into the D2L.
+```{r}
+dim(df)
+df <- df %>%
+  left_join(res %>% select(RubricId, Instructor = Name, Course,
+                           `Assessment Name`, Semester,
+                           Section, Course), by="RubricId")
+dim(df)
+```
+
+
+
+# Munge Data
+
+Summary of the data:
+```{r}
+summary(df)
+```
+
+What are those missing values?
+```{r}
+summary(df[is.na(df$Semester), ])
+table(df[is.na(df$Semester), 1])
+```
+
+Concentrated on the rubric id `113393`. Shall I ask Jon about it?
+
+Anyway, separate them for now.
+
+```{r}
+df.na <- df[is.na(df$Semester), ]
+df <- df[!is.na(df$Semester), ]
+summary(df)
+```
+
+## Separate
+Data are mixture of assessment and attributes.
+
+```{r}
+list.levels <- levels(df$LevelAchieved)
+list.levels
+```
+Separate those two by pattern matching.
+```{r}
+achievements1 <- c("Unsatisfactory", "Developing", "Basic", "Proficient", "Advanced")
+achievements2 <- c("Unacceptable", "Rudimentary", "Fair", "Good", "Excellent")
+pttrn <- paste(c(achievements1, achievements2), collapse = "|")
+
+mdf <- df[grepl(pttrn, df$LevelAchieved), ]
+sdf <- df[!grepl(pttrn, df$LevelAchieved), ]
+mdf$LevelAchieved <- droplevels(mdf$LevelAchieved)
+sdf$LevelAchieved <- droplevels(sdf$LevelAchieved)
+```
+
+Now this `mdf` only contains rubrics with achievment levels.
+```{r}
+table(mdf$LevelAchieved)
+```
+
+
+Moreover, standardize levels. As seen in Note 1, those levels can be inconsistent even with the same instructor (e.g. me) across semesters.
+```{r}
+mdf <- mdf %>% mutate(LevelAchieved = str_extract(mdf$LevelAchieved, pttrn))
+names(achievements2) <- achievements1 # Use named list with str_replace_all
+mdf$LevelAchieved <- str_replace_all(mdf$LevelAchieved, achievements2)
+mdf$LevelAchieved <- ordered(mdf$LevelAchieved, levels = achievements2)
+
+table(mdf$LevelAchieved)
+```
+
+## Notes on Levels
+Got a note from Beth:
+
+> Some notes:
+GW = online (this is true for both undergrad and grad)
+>
+> For undergrad (note the order from A, B, C, D, F)
+> Excellent/advanced + Good/proficient + Basic/Fair = Meets expectation (maybe stacked bar shades of blue? with excellent/advanced being darkest)
+> Rudimentary/poor/developing + Unacceptable/unsatisfactory = not met (maybe stacked bar shades of orange or red?)
+> 
+> For grad
+> Excellent/advanced + Good/proficient = Meets expectation
+> Basic/Fair + Rudimentary/poor/developing + Unacceptable/unsatisfactory = not met 
+> 
+> We've got several types of charts
+> •	Met/not met (and trends over time)
+> •	On-ground/online
+> •	Grade trends by faculty member by course number
+
+So, I need to make a distinction between undergrad/grad when it comes to checking the achievement. Totally forgot.
+
+```{r}
+mdf <- mdf %>% mutate(
+  Met.UND = case_when(is.na(LevelAchieved) ~ "Missing",
+    LevelAchieved == "Excellent" | LevelAchieved == "Good" |
+      LevelAchieved == "Fair" ~ "Met",
+    TRUE ~ "Not Met"),
+  Met.GRD = case_when(is.na(LevelAchieved) ~ "Missing",
+    LevelAchieved == "Excellent" | LevelAchieved == "Good" ~ "Met",
+    TRUE ~ "Not Met")
+  )
+table(mdf$LevelAchieved, mdf$Met.GRD)
+```
+
+## Critrion Names
+Criterion names have some strange issues. Some contains a double quotation mark (with escaped). This can be confirmed in the original data. 
+Also, some appear to be incomplete, only having learning objective labels.
+
+How can I confirm they are error or not? Check known rubrics? Ask Jon?
+
+```{r}
+levels(mdf$Name)
+```
+
+At least, it's easy to deal with the quotation mark.
+```{r}
+mdf$Name <- as.factor(str_remove(mdf$Name, '^"'))
+head(levels(mdf$Name))
+```
+
+Let's deal with them case by case for now. Then I can find a solution later.
+
+
+# Inspect Data
+Finally, the data is (sufficiently) ready for inspection.
+Let's pick a few classes and examine.
+
+## ECO 201 as a Sample
+ECO 201 data has been checked in Note 1. However, any disaggregation by criterion was not done. Apparently, there are quite a bit of variations in criterion wording. Even worse than achievement levels.
+
+```{r}
+tdf <- mdf %>% filter(Course == "ECO 201")
+tdf <- droplevels(tdf)
+#table(tdf$Instructor, tdf$Name)
+levels(tdf$Name)
+```
+
+Those criteria can be picked by certain phrases, however. First, make the letter cases standardized. Then, search by phrases like "Arguments for protection|ism" OR edit if there only a few exceptions.
+```{r}
+tdf$Name <- str_to_title(tdf$Name)
+levels(as.factor(tdf$Name))
+```
+```{r}
+dict <-  c("^Arguments For Protection$"="Arguments For Protectionism",
+           "^Citations$"="Citations/References",
+           "^Structure$"="Structure/Clarity",
+           "Winners/Losers"="Winners And Losers")
+#str_replace_all(levels(as.factor(tdf$Name)), dict)
+tdf$Name <- str_replace_all(tdf$Name, dict)
+tdf$Name <- factor(tdf$Name)
+levels(tdf$Name)
+```
+
+Now, it's ready to be viewed.
+
+### Achievement Levels
+As in the Note 1, here's distribution of grades by instructor. *All the criteria are added together without any weights.*
+```{r}
+ggplot(tdf, aes(LevelAchieved)) + geom_bar(aes(fill = LevelAchieved)) + facet_grid(cols = vars(Instructor)) 
+```
+
+Tendencies can be seen more clearly once normalized.
+```{r}
+ns <- tdf %>% group_by(Instructor) %>% summarise(n = n())
+tbl <- tdf %>% group_by(Instructor, LevelAchieved) %>% summarise(n = n())
+tbl <- tbl %>% left_join(ns, by = "Instructor", suffix = c("n", "N")) %>% mutate(n = nn/nN)
+ggplot(tbl, aes(LevelAchieved)) + geom_col(aes(y = n, fill = LevelAchieved)) + facet_grid(cols = vars(Instructor)) 
+```
+```{r}
+ggplot(tbl, aes(LevelAchieved, y = n)) +
+  geom_point() +
+  geom_line(aes(group = 1)) +
+  facet_grid(cols = vars(Instructor)) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+```
+
+Now, what do they look like for each criterion?
+
+```{r}
+criteria <- levels(tdf$Name)
+criteria
+```
+
+
+```{r}
+x <- tdf %>% filter(Name == criteria[1])
+ns <- x %>% group_by(Instructor) %>% summarise(n = n())
+tbl <- x %>% group_by(Instructor, LevelAchieved) %>% summarise(n = n())
+tbl <- tbl %>% left_join(ns, by = "Instructor", suffix = c("n", "N")) %>% mutate(n = nn/nN)
+
+ggplot(tbl, aes(LevelAchieved, y = n)) +
+  geom_point() +
+  geom_line(aes(group = 1)) +
+  facet_grid(cols = vars(Instructor)) +
+  labs(title = criteria[1]) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+```
+```{r}
+i <- 11
+x <- tdf %>% filter(Name == criteria[i])
+ns <- x %>% group_by(Instructor) %>% summarise(n = n())
+tbl <- x %>% group_by(Instructor, LevelAchieved) %>% summarise(n = n())
+tbl <- tbl %>% left_join(ns, by = "Instructor", suffix = c("n", "N")) %>% mutate(n = nn/nN)
+
+ggplot(tbl, aes(LevelAchieved, y = n)) +
+  geom_point(aes(color = nN)) +
+  geom_line(aes(group = 1)) +
+  facet_grid(cols = vars(Instructor)) +
+  labs(title = criteria[i]) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+```
+
+#### Improvment to the code
+There's a Q&A on this topic at <https://www.thetopsites.net/article/51850864.shtml> and <https://sebastiansauer.github.io/percentage_plot_ggplot2_V2/>.
+
+This fails if I try to facet.
+```{r}
+p <- ggplot(tdf, aes(LevelAchieved)) + geom_bar(aes(y = (..count..)/sum(..count..)))
+p + facet_grid(cols = vars(Instructor))
+```
+
+This works!
+```{r}
+ggplot(tdf, aes(LevelAchieved, group = Instructor)) +
+  geom_bar(aes(y = ..prop.., fill = factor(..x..)), stat = "count") +
+  scale_y_continuous(labels=scales::percent) +
+  facet_grid(cols = vars(Instructor))
+```
+
+And it can be applied to point-line type easily.
+```{r}
+ggplot(tdf, aes(LevelAchieved, group = Instructor)) +
+  geom_point(aes(y = ..prop.., fill = factor(..x..)), stat = "count") +
+  geom_line(aes(y = ..prop.., fill = factor(..x..)), stat = "count") +
+  scale_y_continuous(labels=scales::percent) +
+  facet_grid(cols = vars(Instructor))
+```
+
+### Score
+Scores reflect the weights in rubric rows.
+```{r}
+tdf %>% group_by(Instructor, Name) %>% summarise(mean(Score))
+```
+
+
+```{r}
+ggplot(tdf) + geom_boxplot(aes(Instructor, Score)) + facet_wrap(vars(Name)) + coord_flip()
+```
+
+First of all, what's happening with my scores in "Arguments for Protection"? Some error, I guess. Then how shall I treat such cases? 
+Second, when there are many rows, I should group them. In this case (trade paper), the rubric provides a natural grouping. Alternatively, I can group them by the weights of each criterion.
+
+I can observe some issues with assessment. For instance, "Winners and Losers" always have some zero-score students as exceptions to the majority. Perhaps this indicates the difficulty of communicating this idea to them. ...Or, simply because that portion was taught online during the spring semester. Some interviews with instructors might give a better explanation.
+Also, another example is the "Source/Bias" criterion. Except for Paul, the main author of the assignment, graded students in a extreme way, lacking nuance. I suspect that the idea behind this assessment is not shared well among instructors.
+
+What if I aggregate them?
+
+```{r}
+bystudent <- tdf %>% group_by(Instructor, Course, UserId) %>% summarise(Total = sum(Score))
+ggplot(bystudent, aes(Instructor, Total)) + geom_violin() + geom_jitter()
+```
+
+Given the Pass/No Credit (P/NC) policy allowed students to "give up" on big assignments later in the semester, I find it less likely to have no students with zero scores. I wonder if other instructors did not enter grade for those students who did not submit the paper. I need to clarify this for other classes too.
+
+Regardless, I will need information about withdraw etc. It'll be easy to add that information at the aggregate (e.g. how much proportion of students withdrew this semester? - This wouldn't alter the score averages as long as they are removed from D2L.) It can be challenging or impossible to match individuals.
+
+### ACBSP Reports?
+For reports, we need some aggregates. Many of rubric outcomes are used for internal assessment as prevalence of achievements, or how much proportion of students achieved the goal.
+
+Luckily, this is already measured following Beth's notes.
+```{r}
+tdf %>% group_by(Name) %>% summarise(Share = mean(Met.UND == "Met"))
+```
+
+Online vs F2F? Need to make a variable for this.
+```{r}
+tdf <- tdf %>% mutate(Online = grepl("GW", Section))
+table(tdf$Section, tdf$Online)
+```
+Then,
+```{r}
+tdf %>% group_by(Name, Online) %>% summarise(Share = mean(Met.UND == "Met"))
+```
+Or,
+```{r}
+tdf$Met.bin <- (tdf$Met.UND == "Met")
+tdf$Met.bin <- case_when(tdf$Met.UND == "Met" ~ 1, TRUE ~ 0)
+ggplot(tdf, aes(Online, Met.bin)) + stat_summary(fun.y = mean, geom = "bar") + facet_wrap(vars(Name), ncol = 6)
+```
+
+I can look at 1) absolute level against the goal (75% or so?); 2) differences between groups. For latter, I can plot the original achievement levels together with prevalence (like in Survey report). Also plot of Scores should give a qualitatively the same information, but more explicit about each weight on criterion.
+
+## More on ACBSP
+I asked Beth about what needs to be in. She's explained it in the meeting, but I got those mixed up. She further clarified them for me. I've been basing my idea on the existing report done by Ed last two (or more?) years. I need to follow them, but also need to understand the ACBSP requirements/expectations to address their notes. ...And, moreover, turn things into opportunity for improvement.
+
+For *Standard 4*, we need "trend data for every program and each major/concentration/certificate" to show the systematic assessment of student learning. To remind myself, here's the quote from ACBSP:
+
+> The business unit must have a systematic student learning outcomes assessment process and plan that leads to continuous improvement. Student learning outcomes must be developed and implemented for each accredited program, and the results must be communicated to stakeholders. 
+
+So, Beth explains that we need those direct(external/internal)/indirect assessments. As we organized the directories:
+
+- External direct comparison: We use Peregrine tests. "How well do our students overall compare to the CPC, How well do each of our major/concentration/certificate compare with the rest of CALU student--answers things like do econ students to better on econ than do students overall; do marketing students do better in marketing than do students overall."
+- Internal direct assessments: We use mostly rubric-based assessments. "Internal trends and comparison to our own learning program objectives based on our course-embedded D2L rubrics in BUS499 for the undergrads; but a mixed bag for the MBA right now==this will all go into MBA750 in the future." & "Internal trends and comparison to our major/concentration/certificate from the core course signature assignments in D2L"
+- External indirect assessments: We use Peregrine exit survey. "Internal trends and comparisons of every program and each major/concentration/certificate from the Peregrine survey questions **that are based on our learning outcomes (both undergrad and MBA)**." (Emphasis by me)
+
+[Plus, "Parse the Peregrine data based on whether they took the course in my section (online) or Mark's (on-ground. This will be a process improvement, so we don't need to go overboard."]
+
+For these, we need 3-5 data points - preferably by academic year, if available - to show the trend.
+
+Apart from these, *Standard 3* asks for students and stakeholder roles.
+
+> The business unit must have a systematic process to determine requirements and expectations of current and future students and other key stakeholders. The process must measure stakeholder participation and satisfaction and use the results for continuous improvement. 
+
+Now other questions from outcomes in the survey will be used for this. Beth explains that:
+
+> •	Internal trends and comparisons of the other questions from the Peregrine survey questions that are based on student satisfaction (both undergrad and MBA). For example, we will highlight Stephanie's awesomeness in taking over the MBA program.
+> •	Online/on-ground parsing of the Peregrine survey data is probably a very good idea here as well.
+
+Finally, *Standard 6* is the detailed analysis and "closing the loop" through curriclum (development). The standard reads:
+
+> The business unit must have a systematic process to ensure continuous improvement of curriculum and program delivery. The curriculum must be comprised of appropriate business and professional content to prepare graduates for success. 
+
+Beth places this step as after we see trends in Standard 4, combining "specialized Peregrine runs and detailed analysis more detailed analysis of the D2L data". For instance, we can identify some assignment/assessment where students struggle, then we can trace the trend over time to see how this issue can be addressed. Peregrine survey outcome questions can be used here as well.
+
+In terms of my actions, then, this set of goals provides a better organization of output reports and priorities in analysis. I need to, first, have the aggregate trend data out *and share them with others* before moving on to the next step and adding detailed, multifaceted (wording?) analysis.
+
+## ACBSP Internal Direct
+Now, then, I can summarize the *prevalence of students' achievements* that will be used in direct, internal assessments. I'll need to match results with assessment (rubric rows to assessment tool), but I can just make graphs and tables for all and then map them.
+
+Also, I may want to merge three projects (direct external, direct internal, and indirect external) into one eventually. The alternative would be that I can prepare a document for mapping for each of those projects. Let's see which way would be easier to keep track. Don't forget Ahmet is working on direct external through Excel.
+
+So, first, I need to clean up all the criteria. I think it's easier if I tackle class by class. How many classes are there?
+```{r}
+nlevels(mdf$Course)
+```
+
+Just 13?? I guess the number was inflated by the sessions and several classes are just reported by non-rubric assessments. Here's the list of courses in this data:
+```{r}
+levels(mdf$Course)
+```
+
+### BUS 345
+As before, let's check criteria.
+```{r}
+tdf <- mdf %>% filter(Course == "BUS 345")
+tdf <- droplevels(tdf)
+levels(tdf$Name)
+```
+
+Looks like criterion names are well-standardized. Teachers are Neeley and Beth, so the coordination helped, I think? Anyway, I still need to confirm the course-criteria combinations.
+```{r}
+table(tdf$`Assessment Name`, tdf$Name)
+```
+
+I see. "Ethics Final Paper" = "Final Paper", judging from the criteria. Let's standardize it to "Ethics Final Paper" (Beth's).
+
+Alright, ready to update the data. (Also, repeat the Online indicator variable.)
+```{r edt-bus345}
+tdf <- tdf %>% mutate(`Assessment Name` = str_replace(`Assessment Name`, "^Final Paper$", "Ethics Final Paper"))
+tdf <- tdf %>% mutate(Online = grepl("GW", Section))
+tdf$Met.bin <- case_when(tdf$Met.UND == "Met" ~ 1, TRUE ~ 0)
+table(tdf$`Assessment Name`)
+```
+
+Without grouping by Assessment, the prevalences are simply shown like this.
+```{r}
+tdf %>% group_by(Name) %>% summarise(Share = mean(Met.UND == "Met"))
+```
+
+Online vs F2F? First check the sections.
+```{r}
+table(tdf$Section, tdf$Online)
+```
+This is split by the two instructors.
+```{r}
+table(tdf$Section, tdf$Instructor)
+```
+So, any summary by Instructor will be identical to summary by Online. Keeping that in mind, here's the summary:
+```{r}
+tdf %>% group_by(Name, Online) %>% summarise(Share = mean(Met.UND == "Met"))
+```
+
+
+```{r}
+ggplot(tdf, aes(Online, Met.bin)) + stat_summary(fun.y = mean, geom = "bar") + facet_wrap(vars(Name), ncol = 6)
+```
+
+There are many "extra" criteria only in the online class (not due to wording differences). Some assignments are not collected for F2F?
+
+```{r}
+table(tdf$Section, tdf$`Assessment Name`)
+```
+
+Oh... Annotated Bibliography and Ethics Reflection are not submitted by Neeley. Is this intended? Check with Beth. Other than that, it looks all good.
+
+### BUS 381
+Next, BUS 381. This one is simpler. Only one section offered for online, one assignment, and one instructor.
+```{r}
+tdf <- mdf %>% filter(Course == "BUS 381")
+tdf <- droplevels(tdf)
+table(tdf$Name, tdf$`Assessment Name`)
+```
+```{r}
+table(tdf$Section, tdf$`Assessment Name`)
+```
+```{r}
+table(tdf$Section, tdf$Instructor)
+```
+
+```{r edt-bus381}
+tdf <- tdf %>% mutate(Online = grepl("GW", Section))
+tdf$Met.bin <- case_when(tdf$Met.UND == "Met" ~ 1, TRUE ~ 0)
+```
+So, nothing much to compare.
+```{r}
+tdf %>% group_by(Name, Online) %>% summarise(Share = mean(Met.UND == "Met"))
+```
+
+
+```{r}
+ggplot(tdf, aes(Online, Met.bin)) + stat_summary(fun.y = mean, geom = "bar") + facet_wrap(vars(Name), ncol = 6)
+```
+
+### BUS 499
+Here you go. BUS 499!
+```{r}
+tdf <- mdf %>% filter(Course == "BUS 499")
+tdf <- droplevels(tdf)
+#table(tdf$Name, tdf$`Assessment Name`)
+levels(as.factor(tdf$`Assessment Name`))
+```
+Assessment name variations are between Beth and Mark.
+```{r}
+table(tdf$Instructor, tdf$`Assessment Name`)
+```
+
+Somehow, several of Mark's assignments seem to be split? "Company Profile", "Ethics Case Paper", "Final Company Paper", and "Final Company Profile" have less students. Meanwhile, Beth also has "Company Profile ..." with only 195 rows.
+
+To reconcile these, I need to check the rubric and probably talk to them. ...Or, perhaps I can use rubric rows?
+
+```{r}
+table(tdf$Instructor, tdf$Name)
+```
+
+Also, error in the course name? I think she noted that.
+```{r}
+table(tdf$Section, tdf$Instructor)
+```
+
+Let's deal with this course later.
+
+### BUS 771
+This course is simple like 381.
+```{r}
+tdf <- mdf %>% filter(Course == "BUS 771")
+tdf <- droplevels(tdf)
+table(tdf$Name, tdf$`Assessment Name`)
+```
+```{r}
+table(tdf$Section, tdf$`Assessment Name`)
+```
+```{r}
+table(tdf$Section, tdf$Instructor)
+```
+
+```{r edt-bus771}
+tdf <- tdf %>% mutate(Online = grepl("GW", Section))
+tdf$Met.bin <- case_when(tdf$Met.UND == "Met" ~ 1, TRUE ~ 0)
+```
+```{r}
+tdf %>% group_by(Name, Online) %>% summarise(Share = mean(Met.UND == "Met"))
+```
+
+### ECO 201
+See the previous section.
+
+### ECO 202
+
+```{r}
+tdf <- mdf %>% filter(Course == "ECO 202")
+tdf <- droplevels(tdf)
+table(tdf$Name, tdf$`Assessment Name`)
+```
+
+
+```{r}
+table(tdf$Section, tdf$`Assessment Name`)
+```
+
+
+```{r}
+table(tdf$Section, tdf$Instructor)
+```
+
+Standardize the assignment name to Ed's.
+```{r edt-eco202}
+pttr <- c("Part 1: Data Collection" = "Data Collection",
+          "Part 1: Time Series Plots" = "Time-series graphs",
+          "Part 2: Explain variable movements" = "Explain variable movements",
+          "Part 2: Short-run and long-run perspectives" = "Short-run and long-run perspectives",
+          "Part 2: Compare and contrast" = "Compare and contrast",
+          "Writing: citations" = "Citations",
+          "Writing: Grammar" = "Grammar",
+          "Writing: Structure" = "Structure")
+tdf <- tdf %>%
+  mutate(`Assessment Name` =
+           str_replace(`Assessment Name`,
+                       "^Cross-Country Gdp Comparison Paper$",
+                       "Gdp Comparison Paper"),
+         Name = str_replace_all(Name, pttr)
+           )
+tdf <- tdf %>% mutate(Online = grepl("GW", Section))
+tdf$Met.bin <- case_when(tdf$Met.UND == "Met" ~ 1, TRUE ~ 0)
+```
+
+```{r}
+tdf %>% group_by(Name, Online) %>% summarise(Share = mean(Met.UND == "Met"))
+```
+
+```{r}
+ggplot(tdf, aes(Online, Met.bin)) + stat_summary(fun.y = mean, geom = "bar") + facet_wrap(vars(Name), ncol = 6)
+```
+
+
+
+### ECO 421
+
+```{r}
+tdf <- mdf %>% filter(Course == "ECO 421")
+tdf <- droplevels(tdf)
+table(tdf$Name, tdf$`Assessment Name`)
+```
+
+
+```{r}
+table(tdf$Section, tdf$`Assessment Name`)
+```
+
+
+```{r}
+table(tdf$Section, tdf$Instructor)
+```
+
+```{r edt-eco421}
+tdf <- tdf %>% mutate(Online = grepl("GW", Section))
+tdf$Met.bin <- case_when(tdf$Met.UND == "Met" ~ 1, TRUE ~ 0)
+```
+
+```{r}
+tdf %>% group_by(Name, Online) %>% summarise(Share = mean(Met.UND == "Met"))
+```
+
+```{r}
+ggplot(tdf, aes(Online, Met.bin)) + stat_summary(fun.y = mean, geom = "bar") + facet_wrap(vars(Name), ncol = 6)
+```
+
+### FIN 301, 302
+No observation. It was in the survey but not in D2L data. How?
+
+### HRM 400
+```{r}
+tdf <- mdf %>% filter(Course == "HRM 400")
+tdf <- droplevels(tdf)
+table(tdf$Name, tdf$`Assessment Name`)
+```
+
+```{r}
+table(tdf$Section, tdf$`Assessment Name`)
+```
+
+
+```{r}
+table(tdf$Section, tdf$Instructor)
+```
+
+```{r edt-hrm400}
+tdf <- tdf %>% mutate(Online = grepl("GW", Section))
+tdf$Met.bin <- case_when(tdf$Met.UND == "Met" ~ 1, TRUE ~ 0)
+```
+
+```{r}
+tdf %>% group_by(Name, Online) %>% summarise(Share = mean(Met.UND == "Met"))
+```
+
+```{r}
+ggplot(tdf, aes(Online, Met.bin)) + stat_summary(fun.y = mean, geom = "bar") + facet_wrap(vars(Name), ncol = 6)
+```
+
+### MGT 300
+This one has somewhat strange thing going on. Why some have only the CLO? Perhaps Beth reentered?
+
+```{r}
+tdf <- mdf %>% filter(Course == "MGT 300")
+tdf <- droplevels(tdf)
+#table(tdf$Name, tdf$`Assessment Name`)
+levels(tdf$Name)
+```
+
+Looking at the spreadsheet, it's likely. And, yes.
+```{r}
+table(tdf$Section, tdf$`Assessment Name`)
+```
+This needs to be handled at the earlier stage.
+Like BUS 499. Come back to this course later.
+
+### MKT 300
+```{r}
+tdf <- mdf %>% filter(Course == "MKT 300")
+tdf <- droplevels(tdf)
+#table(tdf$Name, tdf$`Assessment Name`)
+levels(as.factor(tdf$Name))
+```
+
+GO and CLO are listed. Probably the intention of the data collection was not clear? It's Rich's class. He is very familiar with accreditation process itself. Then, probably the association between different objective levels and rubric was confusing to him.
+
+```{r}
+table(tdf$Section, tdf$`Assessment Name`)
+```
+
+I don't know how to reconcile this. GW1 has all the assignment, while 001 and 002 do not have any of Signature Assignments 1 & 2, yet 002 has Signature Assignment 2.
+
+```{r}
+table(tdf$Section, tdf$Instructor)
+```
+Another class I need to get back later.
+
+### MKT 401
+```{r}
+tdf <- mdf %>% filter(Course == "MKT 401")
+tdf <- droplevels(tdf)
+table(tdf$Name, tdf$`Assessment Name`)
+```
+
+```{r}
+table(tdf$Section, tdf$`Assessment Name`)
+```
+
+
+```{r}
+table(tdf$Section, tdf$Instructor)
+```
+
+```{r edt-mkt401}
+tdf <- tdf %>% mutate(Online = grepl("GW", Section))
+tdf$Met.bin <- case_when(tdf$Met.UND == "Met" ~ 1, TRUE ~ 0)
+```
+
+```{r}
+tdf %>% group_by(Name, Online) %>% summarise(Share = mean(Met.UND == "Met"))
+```
+
+One row in rubric (holistic?) and almost all 100% or near achieving. Hmm...
+
+```{r}
+ggplot(tdf, aes(Online, Met.bin)) + stat_summary(fun.y = mean, geom = "bar") + facet_wrap(vars(Name), ncol = 6)
+```
+
+# Next?
+It's about time to make a new notebook. Document ACBSP-related discussion to start it off. Continue with data-cleaning for those few classes. Check the survey data sheet and update the early-stage cleaning. Talk to some of the professors if needed. Combine the edits on assessment names and criteria, then I'll be ready to have prevalence of achievement for every class. Moreover, non-rubric assessment (in a separate sheet) should be incorporated.
+
