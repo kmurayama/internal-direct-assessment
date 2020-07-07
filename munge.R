@@ -20,6 +20,7 @@ mdf <- mdf %>%
          Name = str_replace_all(Name, pttrn.name))
 
 ### ---- standardize-achievement ----
+mdf$LevelAchieved.Original <- mdf$LevelAchieved
 mdf$LevelAchieved <-
   str_replace_all(mdf$LevelAchieved,
                   fixed("Unsatisactory (<60%)"), "Unsatisfactory") # Fix a typo
@@ -32,7 +33,6 @@ pttrn <- paste(c(achievements1, achievements2), collapse = "|")
 x <- levels(mdf$LevelAchieved)
 
 mdf <- mdf %>% mutate(
-  LevelAchieved.Original = LevelAchieved,
   LevelAchieved = str_extract(mdf$LevelAchieved, pttrn))
 mdf$LevelAchieved <- str_replace_all(mdf$LevelAchieved, achievements2)
 mdf$LevelAchieved <- ordered(mdf$LevelAchieved, levels = achievements2)

@@ -277,6 +277,23 @@ x <- rowmap %>% filter(Program == "Human Resources Management") %>%
 knitr::kable(x)
 ```
 
+#### Discussion
+
+There's some disparity between the instructor comment and outcome. For instance,
+```{r}
+survey %>% filter(Course == "HRM 400", Assessment == "Paper 3") %>% select(Analysis.Rubric) %>% knitr::kable()
+```
+
+```{r}
+tbl3 %>% filter(Course == "HRM 400", Assessment == "Paper 3")
+```
+
+This is not due to mis-categorized achievement levels.
+```{r}
+mdf %>% filter(Course == "HRM 400", Assessment == "Paper 3", str_detect(Name, "Hr Law")) %>% group_by(LevelAchieved.Original) %>% summarize(n = n(), Score = mean(Score, na.rm = TRUE))
+```
+
+
 ### Management
 ```{r}
 mgt <- getmerge_outcomes("Management")
