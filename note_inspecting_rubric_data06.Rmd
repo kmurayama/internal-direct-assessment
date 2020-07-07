@@ -13,6 +13,8 @@ output:
       collapsed: no
     df_print: paged
     code_folding: hide
+    fig_height: 7
+    fig_width: 7
 ---
 
 ```{r, echo=FALSE, include=FALSE}
@@ -27,6 +29,7 @@ Data are mostly cleaned and organized; PLOs are largely matched for Standard 4 r
 
 # Set up
 Import data. Codes are externalized for reuse. As a reference:
+
 - `mdf` or main data frame contains the rubric outcome data merged with the course/assessment information gathered from the survey. Data are cleaned up.
 - `non` or non-rubric data frame is separated from the same data source as the rubric information of `mdf`. It contains the instructor's assessments of outcomes at course level. Data are cleaned up.
 - `past` data frame contains the assessment outcome data from the past.
@@ -60,7 +63,7 @@ tbl1 <- mdf %>% filter(str_detect(Name, "Major|Minor", negate = TRUE)) %>%
   summarise(Met = mean(Met.UND.bin), Met.GRD = mean(Met.GRD.bin), n = n())
 ```
 
-Non-rubric data are collected at `Section` level and as shares of students who achieved goals. Use the class size as a weight to have the proper aggregation. Moreover, keep the `PLO Mixed` column for identifying apparently-identical assessments (e.g. different parts of exams).
+Non-rubric data are collected at `Section` level and as shares of students who achieved goals. Use the class size as a weight to have the proper aggregation. Moreover, keep the `PLO` column for identifying apparently-identical assessments (e.g. different parts of exams).
 ```{r}
 tbl2 <- non %>%
   group_by(Course, Assessment, PLO) %>%
@@ -69,10 +72,9 @@ tbl2 <- non %>%
             n = sum(n, na.rm = TRUE), Name = "NA")
 ```
 
-Now the outcomes are summarized in a compatible way for both rubric-based and non rubric-based assessments. Combine them:
+Now the outcomes are summarized in a compatible way for both rubric-based and non rubric-based assessments.
 ```{r}
 tbl3 <- tbl1 %>% bind_rows(tbl2)
-head(tbl3)
 ```
 
 ## Prepare
