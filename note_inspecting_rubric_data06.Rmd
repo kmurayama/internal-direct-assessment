@@ -172,10 +172,10 @@ make_graph <- function(df.out, program){
     geom_line(na.rm = TRUE) +
     geom_point(aes(color = Outcome > goal), na.rm = TRUE) +
     scale_colour_manual(values = setNames(c('blue','red'),c(T, F))) +
-    geom_text(aes(`Academic Year`, 0.5, label = round(`Sample Size`, 0)),
+    geom_text(aes(`Academic Year`, 0.65, label = round(`Sample Size`, 0)),
               alpha = 0.4, na.rm = TRUE) +
-    geom_hline(aes(yintercept = goal), alpha = 0.5) +
-    scale_y_continuous(labels=scales::percent)
+    geom_hline(aes(yintercept = goal), alpha = 0.4, color = "red") +
+    scale_y_continuous(labels=scales::percent, breaks = seq(0, 1, 0.2))
   p + facet_wrap(vars(`Learning Objective Number`)) +
     theme_minimal() +
     labs(title = title, caption = caption) +
