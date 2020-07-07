@@ -168,11 +168,11 @@ make_graph <- function(df.out, program){
   p <- ggplot(df.out, aes(x = `Academic Year`, y = Outcome,
                           group = `Learning Objective Number`)) +
     geom_line(na.rm = TRUE) +
-    geom_point(aes(color = Outcome > 0.7), na.rm = TRUE) +
+    geom_point(aes(color = Outcome > goal), na.rm = TRUE) +
     scale_colour_manual(values = setNames(c('blue','red'),c(T, F))) +
     geom_text(aes(`Academic Year`, 0.5, label = round(`Sample Size`, 0)),
               alpha = 0.4, na.rm = TRUE) +
-    geom_hline(yintercept = 0.7, color = "red") +
+    geom_hline(aes(yintercept = goal), alpha = 0.5) +
     scale_y_continuous(labels=scales::percent)
   p + facet_wrap(vars(`Learning Objective Number`)) +
     theme_minimal() +
@@ -210,6 +210,8 @@ knitr::kable(acc, dig=2)
 
 
 ```{r}
+ref <- tibble(`Learning Objective Number` = 1:4, goal = rep(0.7, 4))
+acc <- acc %>% left_join(ref, by = "Learning Objective Number")
 make_graph(acc, "Accounting")
 ```
 
@@ -228,6 +230,8 @@ knitr::kable(bus, dig=2)
 
 
 ```{r}
+ref <- tibble(`Learning Objective Number` = 1:10, goal = c(rep(0.7, 8), 0.9, 0.7))
+bus <- bus %>% left_join(ref, by = "Learning Objective Number")
 make_graph(bus, "Business Core")
 ```
 
@@ -246,9 +250,6 @@ eco <- getmerge_outcomes("Economics")
 knitr::kable(eco, dig=2)
 ```
 
-```{r}
-make_graph(eco, "Economics")
-```
 
 ### Finance
 All the assessment from FIN 302. Waiting for the data from Jon Kallis.
@@ -261,6 +262,8 @@ knitr::kable(hrm, dig=2)
 
 
 ```{r}
+ref <- tibble(`Learning Objective Number` = 1:4, goal = rep(0.7, 4))
+hrm <- hrm %>% left_join(ref, by = "Learning Objective Number")
 make_graph(hrm, "Human Resources Management")
 ```
 
@@ -279,6 +282,8 @@ knitr::kable(mgt, dig=2)
 ```
 
 ```{r}
+ref <- tibble(`Learning Objective Number` = 1:4, goal = rep(0.7, 4))
+mgt <- mgt %>% left_join(ref, by = "Learning Objective Number")
 make_graph(mgt, "Management")
 ```
 
@@ -307,6 +312,8 @@ knitr::kable(mba, dig=2)
 ```
 
 ```{r}
+ref <- tibble(`Learning Objective Number` = 1:8, goal = rep(0.85, 8))
+mba <- mba %>% left_join(ref, by = "Learning Objective Number")
 make_graph(mba, "MBA")
 ```
 
