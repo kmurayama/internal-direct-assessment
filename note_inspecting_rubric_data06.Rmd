@@ -246,12 +246,27 @@ knitr::kable(x)
 ```
 
 ### Economics
-Only one PLO is identified yet.
+ECO 301 was not offered during this term.
+
 ```{r}
 eco <- getmerge_outcomes("Economics")
 knitr::kable(eco, dig=2)
 ```
 
+```{r}
+x <- rowmap %>% filter(Program == "Economics") %>%
+  discard(~all(is.na(.x))) %>% map_df(~.x) %>% 
+  select(-c(Program, Goal, `Last Checked`))
+knitr::kable(x)
+```
+
+```{r}
+tbl3 %>% filter(Course == "ECO 421")
+```
+
+I have ECO 421 data, but rows are not identified clearly.
+
+- [ ] Ask Paul about ECO 421
 
 ### Finance
 All the assessment from FIN 302. Waiting for the data from Jon Kallis.
