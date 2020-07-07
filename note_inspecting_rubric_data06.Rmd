@@ -1,12 +1,7 @@
 ---
 title: "Note to Inspect Rubric Data 6"
-date: 7/6/2020
+date: 7/7/2020
 output:
-  html_notebook:
-    toc: yes
-    toc_float:
-      collapsed: yes
-    code_folding: hide
   html_document:
     toc: yes
     toc_float:
@@ -15,6 +10,11 @@ output:
     code_folding: hide
     fig_height: 7
     fig_width: 7
+  html_notebook:
+    toc: yes
+    toc_float:
+      collapsed: yes
+    code_folding: hide
 ---
 
 ```{r, echo=FALSE, include=FALSE}
@@ -200,7 +200,7 @@ survey %>% filter(`Follow up` != "NA")
 - [ ] Rich MKT 300. Assess PLO 1-10… while only 1-3 available?
 FIN 711 for MBA 3, missing. ...Wait. It should be from 401. Eric Freeman taught and answered. >>
 
-I'm so confused. I suppose those files in 2019-20 folder are updated versions. However, worksheets contradict with the overview sheet. I don't know what data those sheets refer to.
+Some confusion. I suppose those files in 2019-20 folder are updated versions. However, worksheets contradict with the overview sheet. I don't know what data those sheets refer to.
 
 ## Outcomes
 ### Accounting
@@ -246,12 +246,27 @@ knitr::kable(x)
 ```
 
 ### Economics
-Only one PLO is identified yet.
+ECO 301 was not offered during this term.
+
 ```{r}
 eco <- getmerge_outcomes("Economics")
 knitr::kable(eco, dig=2)
 ```
 
+```{r}
+x <- rowmap %>% filter(Program == "Economics") %>%
+  discard(~all(is.na(.x))) %>% map_df(~.x) %>% 
+  select(-c(Program, Goal, `Last Checked`))
+knitr::kable(x)
+```
+
+```{r}
+tbl3 %>% filter(Course == "ECO 421")
+```
+
+I have ECO 421 data, but rows are not identified clearly.
+
+- [ ] Ask Paul about ECO 421
 
 ### Finance
 All the assessment from FIN 302. Waiting for the data from Jon Kallis.
@@ -316,10 +331,21 @@ knitr::kable(x)
 ### Marketing
 All the assessment from MKT 401. Eric Freeman has one rubric outcome.
 ```{r}
-tbl3 %>% filter(Course == "MKT 401") %>% ungroup() %>% select(Assessment, Name)
+tbl3 %>% filter(Course == "MKT 401") %>% ungroup() %>% select(Assessment, Name, n) %>% knitr::kable()
 ```
 
-Ask Rich?
+```{r}
+mdf %>% filter(Course == "MKT 401") %>% group_by(Section, Name) %>% summarise(n = n())
+```
+
+```{r}
+x <- rowmap %>% filter(Program == "Marketing") %>%
+  discard(~all(is.na(.x))) %>% map_df(~.x) %>% 
+  select(-c(Program, Goal, `Last Checked`))
+knitr::kable(x)
+```
+
+- [x] Ask Rich?
 
 ### MBA
 Course for MBA PLO5 was not offered this term.
