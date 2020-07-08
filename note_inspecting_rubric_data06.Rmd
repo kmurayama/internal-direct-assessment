@@ -249,9 +249,18 @@ knitr::kable(x)
 
 Sanity check 1: Numbers of students in each assignment
 ```{r}
-mdf %>% filter(Course == "BUS 499") %>% group_by(Assessment, Name) %>% summarize(n = n()) %>% knitr::kable()
+mdf %>% filter(Course == "BUS 499", Section == "BUS 499 GW1") %>% group_by(Semester) %>% summarise(n = n())
+mdf %>% filter(Course == "BUS 499", Section == "BUS 499 GW1", Semester == "Spring 2020") %>% group_by(Assessment.Original, Name) %>% summarize(n = n()) %>% knitr::kable()
 ```
 
+COnfirmed: PLO2a is clicked for all students.
+```{r}
+mdf %>% filter(Section == "BUS 499 GW1", Assessment == "Annotated Bibliography", Semester == "Spring 2020", str_detect(Name, "Scholarly"))
+```
+
+Three should be all the levels: missing good and basic.
+
+Issue with local-server sync?
 
 
 ## Economics
@@ -438,7 +447,7 @@ hrm %>% arrange(`Learning Objective Number`, `Academic Year`)
 
 ```{r}
 ref <- tibble(`Learning Objective Number` = 1:4, goal = rep(0.7, 4))
-hrm <- acc %>% left_join(ref, by = "Learning Objective Number")
+hrm <- hrm %>% left_join(ref, by = "Learning Objective Number")
 
 program <- "Human Resources Management"
 
@@ -551,5 +560,8 @@ x <- rowmap %>% filter(Program == "MBA") %>%
 knitr::kable(x)
 ```
 
+```{r}
+mdf %>% filter(Course == "BUS 499") %>% group_by(Section) %>% summarise(n = n())
+```
 
 # Next
