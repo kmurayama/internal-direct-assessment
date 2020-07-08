@@ -286,13 +286,21 @@ knitr::kable(x %>% select(PLO, Description, ends_with("Assessment Course")))
 ```
 
 ```{r}
-tbl3 %>% filter(Course == "ECO 421")
+#tbl3 %>% filter(Course == "ECO 421") %>% select(Course, Assessment, Name, PLO) %>% knitr::kable()
+tbl3 %>% filter(Course == "ECO 421") %>% knitr::kable(dig = 2)
 ```
 
 I have ECO 421 data, but rows are not identified clearly.
 
 - [x] Ask Paul about ECO 421 >> Waiting for response
 
+#### Discussion
+
+Sanity check
+
+```{r}
+mdf %>% filter(Course == "ECO 421") %>% group_by(Assessment, Name) %>% summarize(n = n()) %>% knitr::kable()
+```
 
 
 ## Finance
