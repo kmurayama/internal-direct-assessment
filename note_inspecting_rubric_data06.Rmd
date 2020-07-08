@@ -2,6 +2,11 @@
 title: "Note to Inspect Rubric Data 6"
 date: 7/7/2020
 output:
+  html_notebook:
+    toc: yes
+    toc_float:
+      collapsed: yes
+    code_folding: hide
   html_document:
     toc: yes
     toc_float:
@@ -10,11 +15,6 @@ output:
     code_folding: hide
     fig_height: 7
     fig_width: 7
-  html_notebook:
-    toc: yes
-    toc_float:
-      collapsed: yes
-    code_folding: hide
 ---
 
 ```{r, echo=FALSE, include=FALSE}
@@ -245,6 +245,15 @@ x <- rowmap %>% filter(Program == "Business Core") %>%
 knitr::kable(x)
 ```
 
+#### Discussion
+
+Sanity check 1: Numbers of students in each assignment
+```{r}
+mdf %>% filter(Course == "BUS 499") %>% group_by(Assessment, Name) %>% summarize(n = n()) %>% knitr::kable()
+```
+
+
+
 ### Economics
 ECO 301 was not offered during this term.
 
@@ -266,7 +275,7 @@ tbl3 %>% filter(Course == "ECO 421")
 
 I have ECO 421 data, but rows are not identified clearly.
 
-- [ ] Ask Paul about ECO 421
+- [ ] Ask Paul about ECO 421 >> Waiting for response
 
 ### Finance
 All the assessment from FIN 302. Waiting for the data from Jon Kallis.
@@ -308,6 +317,55 @@ This is not due to mis-categorized achievement levels.
 mdf %>% filter(Course == "HRM 400", Assessment == "Paper 3", str_detect(Name, "Hr Law")) %>% group_by(LevelAchieved.Original) %>% summarize(n = n(), Score = mean(Score, na.rm = TRUE))
 ```
 
+It's a small course. Let's look at details...
+```{r}
+mdf %>% filter(Course == "HRM 400", Assessment == "Paper 3", str_detect(Name, "Hr Law")) %>% group_by(Name) %>% summarize(n = n())
+```
+
+4 students did HR Law 1 and HR Law 2, but 8 students did HR Law 3? That doesn't make sense.
+
+Some error with conversion?
+```{r}
+mdf %>% filter(Course == "HRM 400", str_detect(Name, "Hr Law")) %>% group_by(Name) %>% summarize(n = n())
+```
+```{r}
+mdf %>% filter(Course == "HRM 400") %>% group_by(Assessment.Original, Name) %>% summarize(n = n()) %>% knitr::kable()
+```
+
+That's weird. The numbers of students differ a lot by rubric row, even though there are only three assignments. e.g. Only 3 students are graded for APA/Scholarship for Paper #1, while 14 are graded for Consistency?
+
+As a result, the distribution of grades end up uneven.
+```{r}
+mdf %>% filter(Course == "HRM 400", Assessment == "Paper 3", str_detect(Name, "Hr Law")) %>% group_by(Name, LevelAchieved.Original) %>% summarize(n = n())
+```
+
+- [x] Ask Stephanie about the rubric usage >> Waiting for reply.
+
+A little more check. Frequencies of unique students?
+```{r}
+mdf %>% filter(Course == "HRM 400") %>% group_by(Section, UserId) %>% summarize(n = n()) %>% knitr::kable()
+```
+
+For 21 (?) students.
+
+Some alternative names?
+```{r}
+mdf %>% filter(Course == "HRM 400", Assessment == "Paper 1") %>% group_by(Name, UserId) %>% summarize(n = n()) %>% pivot_wider(names_from = Name, values_from = n)
+```
+
+- `Process/...` rubric row has some duplicates?
+- No obvious "substitute" kind
+
+
+```{r}
+mdf %>% filter(Course == "HRM 400", Assessment == "Paper 2") %>% group_by(Name, UserId) %>% summarize(n = n()) %>% pivot_wider(names_from = Name, values_from = n)
+```
+
+Simply missing.
+
+```{r}
+mdf %>% filter(Course == "HRM 400", Assessment == "Paper 3") %>% group_by(Name, UserId) %>% summarize(n = n()) %>% pivot_wider(names_from = Name, values_from = n)
+```
 
 ### Management
 ```{r}
@@ -328,6 +386,12 @@ x <- rowmap %>% filter(Program == "Management") %>%
 knitr::kable(x)
 ```
 
+#### Discussion
+Sanity check 1: Numbers of students in each assignment
+```{r}
+mdf %>% filter(Course == "BUS 345") %>% group_by(Assessment, Name) %>% summarize(n = n()) %>% knitr::kable()
+```
+
 ### Marketing
 All the assessment from MKT 401. Eric Freeman has one rubric outcome.
 ```{r}
@@ -346,6 +410,25 @@ knitr::kable(x)
 ```
 
 - [x] Ask Rich?
+
+#### Discussion
+Sanity check 1: Numbers of students in each assignment
+```{r}
+mdf %>% filter(Course == "MKT 401") %>% group_by(Assessment, Name) %>% summarize(n = n()) %>% knitr::kable()
+```
+
+PLO1; CLO1 has 110?
+
+For one section...
+```{r}
+mdf %>% filter(Course == "MKT 401") %>% group_by(Section, Assessment) %>% summarize(n = n()) %>% knitr::kable()
+```
+
+
+```{r}
+mdf %>% filter(Course == "MKT 401") %>% group_by(Section, UserId) %>% summarize(n = n()) %>% knitr::kable()
+```
+
 
 ### MBA
 Course for MBA PLO5 was not offered this term.
