@@ -1,6 +1,6 @@
 ---
 title: "Note to Inspect Rubric Data 6"
-date: 7/7/2020
+date: "`r format(Sys.time(), '%d %B, %Y')`"
 output:
   html_notebook:
     toc: yes
@@ -197,13 +197,13 @@ survey %>% filter(`Follow up` != "NA")
 - [x] Dave & Paul R. Ask Beth? BUS 799, "Chapter Case Study" "Comprehensive Project". Supposed to be exam scores? >> Waiting for Stephanie.
 - [x] Chris? FIN 301. "Ratio Calculation", "Ratio Interpretation Signature Assignment #3", "NPV Calculation", "Moral Hazard" (Ed inputs); FIN 301 "Ration Analysis - Rich Uncle Scenario" (Chris entered); "Signature Assignment 3", "Signature Assignment 2" (Nan entered). >> Nan's response clarified most. Helpful to know that the Signature Assignment 3 (Capital Budgeting) was discontinued. No wonder I can't have a consistent matching.
 - [x] To begin with, Finance program should use FIN 302 Capital Budgeting for assessment of both 1 and 2. Likely outdated? Ask Nan. >> Okay, **FIN 301 is not used for proram assessment.** I need FIN 302 data for assessment. Remove all FIN 301 plo tags. ...Done.
-- [ ] Rich MKT 300. Assess PLO 1-10… while only 1-3 available?
+- [x] Rich MKT 300. Assess PLO 1-10… while only 1-3 available?
 FIN 711 for MBA 3, missing. ...Wait. It should be from 401. Eric Freeman taught and answered. >>
 
 Some confusion. I suppose those files in 2019-20 folder are updated versions. However, worksheets contradict with the overview sheet. I don't know what data those sheets refer to.
 
-## Outcomes
-### Accounting
+# Outcomes
+## Accounting
 
 ```{r}
 acc <- getmerge_outcomes("Accounting")
@@ -224,7 +224,7 @@ x <- rowmap %>% filter(Program == "Accounting") %>%
 knitr::kable(x)
 ```
 
-### Business Core
+## Business Core
 ```{r}
 bus <- getmerge_outcomes("Business Core")
 knitr::kable(bus, dig=2)
@@ -245,7 +245,7 @@ x <- rowmap %>% filter(Program == "Business Core") %>%
 knitr::kable(x)
 ```
 
-#### Discussion
+### Discussion
 
 Sanity check 1: Numbers of students in each assignment
 ```{r}
@@ -254,7 +254,7 @@ mdf %>% filter(Course == "BUS 499") %>% group_by(Assessment, Name) %>% summarize
 
 
 
-### Economics
+## Economics
 ECO 301 was not offered during this term.
 
 ```{r}
@@ -275,12 +275,12 @@ tbl3 %>% filter(Course == "ECO 421")
 
 I have ECO 421 data, but rows are not identified clearly.
 
-- [ ] Ask Paul about ECO 421 >> Waiting for response
+- [x] Ask Paul about ECO 421 >> Waiting for response
 
-### Finance
+## Finance
 All the assessment from FIN 302. Waiting for the data from Jon Kallis.
 
-### Human Resource Management
+## Human Resource Management
 ```{r}
 hrm <- getmerge_outcomes("Human Resources Management")
 knitr::kable(hrm, dig=2)
@@ -301,7 +301,7 @@ x <- rowmap %>% filter(Program == "Human Resources Management") %>%
 knitr::kable(x)
 ```
 
-#### Discussion
+### Discussion
 
 There's some disparity between the instructor comment and outcome. For instance,
 ```{r}
@@ -367,7 +367,7 @@ Simply missing.
 mdf %>% filter(Course == "HRM 400", Assessment == "Paper 3") %>% group_by(Name, UserId) %>% summarize(n = n()) %>% pivot_wider(names_from = Name, values_from = n)
 ```
 
-### Management
+## Management
 ```{r}
 mgt <- getmerge_outcomes("Management")
 knitr::kable(mgt, dig=2)
@@ -386,13 +386,13 @@ x <- rowmap %>% filter(Program == "Management") %>%
 knitr::kable(x)
 ```
 
-#### Discussion
+### Discussion
 Sanity check 1: Numbers of students in each assignment
 ```{r}
 mdf %>% filter(Course == "BUS 345") %>% group_by(Assessment, Name) %>% summarize(n = n()) %>% knitr::kable()
 ```
 
-### Marketing
+## Marketing
 All the assessment from MKT 401. Eric Freeman has one rubric outcome.
 ```{r}
 tbl3 %>% filter(Course == "MKT 401") %>% ungroup() %>% select(Assessment, Name, n) %>% knitr::kable()
@@ -411,7 +411,7 @@ knitr::kable(x)
 
 - [x] Ask Rich?
 
-#### Discussion
+### Discussion
 Sanity check 1: Numbers of students in each assignment
 ```{r}
 mdf %>% filter(Course == "MKT 401") %>% group_by(Assessment, Name) %>% summarize(n = n()) %>% knitr::kable()
@@ -430,7 +430,7 @@ mdf %>% filter(Course == "MKT 401") %>% group_by(Section, UserId) %>% summarize(
 ```
 
 
-### MBA
+## MBA
 Course for MBA PLO5 was not offered this term.
 
 
