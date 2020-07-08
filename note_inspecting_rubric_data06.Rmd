@@ -60,7 +60,8 @@ Rubric outcome data are collected at individual level. Take average over `Course
 # Undergrad focus for now
 tbl1 <- mdf %>% filter(str_detect(Name, "Major|Minor", negate = TRUE)) %>%
   group_by(Course, Assessment, Name, PLO) %>%
-  summarise(Met = mean(Met.UND.bin), Met.GRD = mean(Met.GRD.bin), n = n())
+  summarise(Met = mean(Met.UND.bin), Met.GRD = mean(Met.GRD.bin), n = n()) %>% 
+  mutate(Rubric = TRUE)
 ```
 
 Non-rubric data are collected at `Section` level and as shares of students who achieved goals. Use the class size as a weight to have the proper aggregation. Moreover, keep the `PLO` column for identifying apparently-identical assessments (e.g. different parts of exams).
@@ -69,7 +70,8 @@ tbl2 <- non %>%
   group_by(Course, Assessment, PLO) %>%
   summarise(Met = weighted.mean(x = np/n, w = n, na.rm = TRUE),
             Met.GRD = Met,
-            n = sum(n, na.rm = TRUE), Name = "NA")
+            n = sum(n, na.rm = TRUE), Name = "NA") %>% 
+  mutate(Rubric = FALSE)
 ```
 
 Now the outcomes are summarized in a compatible way for both rubric-based and non rubric-based assessments.
@@ -83,11 +85,13 @@ get_outcome <- function(plotag, rrow, program, plo, grad = FALSE){
   if(is.na(plotag)){return(NA)}
   if(grad){
     tbl3 %>% filter(PLO == plotag, str_detect(Name, rrow)) %>% ungroup() %>% 
+      group_by(Rubric) %>% 
       summarize(Met = mean(Met.GRD), n = min(n)) %>%
       mutate(Program = program, PLO = plo)
   }
   else{
     tbl3 %>% filter(PLO == plotag, str_detect(Name, rrow)) %>% ungroup() %>% 
+      group_by(Rubric) %>% 
       summarize(Met = mean(Met), n = min(n)) %>%
       mutate(Program = program, PLO = plo)
   }
@@ -141,7 +145,7 @@ merge_outcomes <- function(lres, program){
   x <- x %>% ungroup() %>%
     transmute(`Learning Objective Number` = PLO,
               `Academic Year` = rep(2019, nrow(x)),
-              `Outcome` = Met, `Sample Size` = n )
+              `Outcome` = Met, `Sample Size` = n, Rubric )
   
   y <- past %>%
     filter(Program == program,
@@ -207,7 +211,7 @@ Some confusion. I suppose those files in 2019-20 folder are updated versions. Ho
 
 ```{r}
 acc <- getmerge_outcomes("Accounting")
-knitr::kable(acc, dig=2)
+knitr::kable(acc %>% filter(`Academic Year` == 2019), dig=2)
 ```
 
 
@@ -221,13 +225,15 @@ make_graph(acc, "Accounting")
 x <- rowmap %>% filter(Program == "Accounting") %>%
   discard(~all(is.na(.x))) %>% map_df(~.x) %>% 
   select(-c(Program, Goal, `Last Checked`))
-knitr::kable(x)
+knitr::kable(x %>% select(PLO, Description, ends_with("Assessment Course")))
 ```
+
+
 
 ## Business Core
 ```{r}
 bus <- getmerge_outcomes("Business Core")
-knitr::kable(bus, dig=2)
+knitr::kable(bus %>% filter(`Academic Year` == 2019), dig=2)
 ```
 
 
@@ -242,7 +248,7 @@ make_graph(bus, "Business Core")
 x <- rowmap %>% filter(Program == "Business Core") %>%
   discard(~all(is.na(.x))) %>% map_df(~.x) %>% 
   select(-c(Program, Goal, `Last Checked`))
-knitr::kable(x)
+knitr::kable(x %>% select(PLO, Description, ends_with("Assessment Course")))
 ```
 
 ### Discussion
@@ -263,19 +269,20 @@ Three should be all the levels: missing good and basic.
 Issue with local-server sync?
 
 
+
 ## Economics
 ECO 301 was not offered during this term.
 
 ```{r}
 eco <- getmerge_outcomes("Economics")
-knitr::kable(eco, dig=2)
+knitr::kable(eco %>% filter(`Academic Year` == 2019), dig=2)
 ```
 
 ```{r}
 x <- rowmap %>% filter(Program == "Economics") %>%
   discard(~all(is.na(.x))) %>% map_df(~.x) %>% 
   select(-c(Program, Goal, `Last Checked`))
-knitr::kable(x)
+knitr::kable(x %>% select(PLO, Description, ends_with("Assessment Course")))
 ```
 
 ```{r}
@@ -286,13 +293,17 @@ I have ECO 421 data, but rows are not identified clearly.
 
 - [x] Ask Paul about ECO 421 >> Waiting for response
 
+
+
 ## Finance
 All the assessment from FIN 302. Waiting for the data from Jon Kallis.
+
+
 
 ## Human Resource Management
 ```{r}
 hrm <- getmerge_outcomes("Human Resources Management")
-knitr::kable(hrm, dig=2)
+knitr::kable(hrm %>% filter(`Academic Year` == 2019), dig=2)
 ```
 
 
@@ -307,7 +318,7 @@ make_graph(hrm, "Human Resources Management")
 x <- rowmap %>% filter(Program == "Human Resources Management") %>%
   discard(~all(is.na(.x))) %>% map_df(~.x) %>% 
   select(-c(Program, Goal, `Last Checked`))
-knitr::kable(x)
+knitr::kable(x %>% select(PLO, Description, ends_with("Assessment Course")))
 ```
 
 ### Discussion
@@ -442,7 +453,8 @@ y <- past %>%
   select(`Learning Objective Number`, `Academic Year`,
          Outcome, `Sample Size`)
 hrm <- bind_rows(x, y)
-hrm %>% arrange(`Learning Objective Number`, `Academic Year`)
+hrm <- hrm %>% arrange(`Learning Objective Number`, `Academic Year`)
+knitr::kable(hrm %>% filter(`Academic Year` == 2019), dig=2)
 ```
 
 ```{r}
@@ -475,10 +487,11 @@ p + facet_wrap(vars(`Learning Objective Number`)) +
 All set for now.
 
 
+
 ## Management
 ```{r}
 mgt <- getmerge_outcomes("Management")
-knitr::kable(mgt, dig=2)
+knitr::kable(mgt %>% filter(`Academic Year` == 2019), dig=2)
 ```
 
 ```{r}
@@ -491,7 +504,7 @@ make_graph(mgt, "Management")
 x <- rowmap %>% filter(Program == "Management") %>%
   discard(~all(is.na(.x))) %>% map_df(~.x) %>% 
   select(-c(Program, Goal, `Last Checked`))
-knitr::kable(x)
+knitr::kable(x %>% select(PLO, Description, ends_with("Assessment Course")))
 ```
 
 ### Discussion
@@ -499,6 +512,8 @@ Sanity check 1: Numbers of students in each assignment
 ```{r}
 mdf %>% filter(Course == "BUS 345") %>% group_by(Assessment, Name) %>% summarize(n = n()) %>% knitr::kable()
 ```
+
+
 
 ## Marketing
 All the assessment from MKT 401. Eric Freeman has one rubric outcome.
@@ -514,7 +529,7 @@ mdf %>% filter(Course == "MKT 401") %>% group_by(Section, Name) %>% summarise(n 
 x <- rowmap %>% filter(Program == "Marketing") %>%
   discard(~all(is.na(.x))) %>% map_df(~.x) %>% 
   select(-c(Program, Goal, `Last Checked`))
-knitr::kable(x)
+knitr::kable(x %>% select(PLO, Description, ends_with("Assessment Course")))
 ```
 
 - [x] Ask Rich?
@@ -538,13 +553,14 @@ mdf %>% filter(Course == "MKT 401") %>% group_by(Section, UserId) %>% summarize(
 ```
 
 
+
 ## MBA
 Course for MBA PLO5 was not offered this term.
 
 
 ```{r}
 mba <- getmerge_outcomes("MBA", grad = TRUE)
-knitr::kable(mba, dig=2)
+knitr::kable(mba %>% filter(`Academic Year` == 2019), dig=2)
 ```
 
 ```{r}
@@ -557,7 +573,7 @@ make_graph(mba, "MBA")
 x <- rowmap %>% filter(Program == "MBA") %>%
   discard(~all(is.na(.x))) %>% map_df(~.x) %>% 
   select(-c(Program, Goal, `Last Checked`))
-knitr::kable(x)
+knitr::kable(x %>% select(PLO, Description, ends_with("Assessment Course")))
 ```
 
 ```{r}
