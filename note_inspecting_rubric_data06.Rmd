@@ -116,7 +116,7 @@ list.rrows <- list(
   "Accounting" = rep("NA", 4),
   "Business Core" = c(NA, "Plo2", "Plo3", "Plo4", "5[a|b|c|d]", "6[e|f|g]",
                       "Plo7", "Plo8", "Plo9", ".*"),
-  "Economics" = c(NA, ".*", "Conclusion", "Literature Review", "Discussion Of Empirical Results"),
+  "Economics" = c(NA, ".*", ".*", "Literature Review", "Discussion Of Empirical Results"),
   "Human Resources Management" = c("Organizational Types",
            "(Organizational Types)|(Organizational Strategy)",
            "Hr Law", ".*"),
@@ -332,11 +332,18 @@ I have ECO 421 data, but rows are not identified clearly.
 
 > Ken…which rubric did I submit for the assessment?  The “Final Paper Rubric” or the “Empirical Analysis Rubric” or another one?  If it is the final paper rubric, PLO5 clearly goes with the row “Discussion of Empirical Results”.  PLO4 goes with some combination of the “Literature review” row and the “Description or Data and Empirical Model” row, but let’s align it with the “Literature Review” row.  PLO3 is the challenging one, as it is more or less the whole project, not just one area in the rubric…so perhaps we should use the “Conclusion” row?
 
--	Conclusion -> PLO3
+-	~~Conclusion~~ All rows -> PLO3
 -	Literature Review -> PLO4
 -	Discussion of Empirical Results -> PLO5
 
 Reflect on the Prepare stage...Done. Update the result above. Then add the graph.
+
+Additional change:
+
+> Ok.  Let’s do all of the rows combined for PLO3 then.  I will try to remember to edit this rubric for the fall to clarify the difference between the validity of data and the validity of sources (which seems to be the current issue with the PLO4 only being tied to the literature review).
+
+Update...Done.
+
 
 ```{r}
 ref <- tibble(`Learning Objective Number` = 1:5, goal = rep(0.7, 5))
@@ -354,7 +361,7 @@ mdf %>% filter(Course == "ECO 421") %>% group_by(Assessment, Name) %>% summarize
 
 ECO 421 suffers from the similar missing data. Need to access the course.
 
-- [ ] Ask Paul
+- [x] Ask Paul
 
 ## Finance
 All the assessment from FIN 302. Waiting for the data from Jon Kallis.
