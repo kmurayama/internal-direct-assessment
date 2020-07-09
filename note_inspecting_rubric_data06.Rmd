@@ -107,7 +107,7 @@ list.plotags <- list("Accounting" = c("ACC 1", "ACC 2", NA, "ACC 4"),
                               "BUS 3, BUS 5, BUS 6", "BUS 3, BUS 5, BUS 6",
                               "BUS 7, BUS 8", "BUS 7, BUS 8", "BUS 4, BUS 9",
                               "BUS 10"),
-          "Economics" = c("ECO 2"),
+          "Economics" = c(NA, "ECO 2", rep("ECO 3, ECO 4, ECO 5", 3)),
           "Human Resources Management" = paste("HRM", 1:4),
           "Management" = c(rep("MGT 1, MGT 2, MGT 3", 3), "MGT 4"),
           "MBA" = c(paste("MBA", 1:4), NA, paste("MBA", 6:8))
@@ -116,7 +116,7 @@ list.rrows <- list(
   "Accounting" = rep("NA", 4),
   "Business Core" = c(NA, "Plo2", "Plo3", "Plo4", "5[a|b|c|d]", "6[e|f|g]",
                       "Plo7", "Plo8", "Plo9", ".*"),
-  "Economics" = c(".*"),
+  "Economics" = c(NA, ".*", "Conclusion", "Literature Review", "Discussion Of Empirical Results"),
   "Human Resources Management" = c("Organizational Types",
            "(Organizational Types)|(Organizational Strategy)",
            "Hr Law", ".*"),
@@ -320,6 +320,7 @@ x <- rowmap %>% filter(Program == "Economics") %>%
 knitr::kable(x %>% select(PLO, Description, ends_with("Assessment Course")))
 ```
 
+### ECO 421
 ```{r}
 #tbl3 %>% filter(Course == "ECO 421") %>% select(Course, Assessment, Name, PLO) %>% knitr::kable()
 tbl3 %>% filter(Course == "ECO 421") %>% knitr::kable(dig = 2)
@@ -329,14 +330,31 @@ I have ECO 421 data, but rows are not identified clearly.
 
 - [x] Ask Paul about ECO 421 >> Waiting for response
 
-#### Discussion
+> Ken…which rubric did I submit for the assessment?  The “Final Paper Rubric” or the “Empirical Analysis Rubric” or another one?  If it is the final paper rubric, PLO5 clearly goes with the row “Discussion of Empirical Results”.  PLO4 goes with some combination of the “Literature review” row and the “Description or Data and Empirical Model” row, but let’s align it with the “Literature Review” row.  PLO3 is the challenging one, as it is more or less the whole project, not just one area in the rubric…so perhaps we should use the “Conclusion” row?
 
-Sanity check
+-	Conclusion -> PLO3
+-	Literature Review -> PLO4
+-	Discussion of Empirical Results -> PLO5
+
+Reflect on the Prepare stage...Done. Update the result above. Then add the graph.
+
+```{r}
+ref <- tibble(`Learning Objective Number` = 1:5, goal = rep(0.7, 5))
+eco <- eco %>% left_join(ref, by = "Learning Objective Number")
+make_graph(eco, "Economics")
+```
+
+### Discussion
+
+#### Sanity check
 
 ```{r}
 mdf %>% filter(Course == "ECO 421") %>% group_by(Assessment, Name) %>% summarize(n = n()) %>% knitr::kable()
 ```
 
+ECO 421 suffers from the similar missing data. Need to access the course.
+
+- [ ] Ask Paul
 
 ## Finance
 All the assessment from FIN 302. Waiting for the data from Jon Kallis.
