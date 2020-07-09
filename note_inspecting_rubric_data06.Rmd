@@ -616,7 +616,19 @@ mdf %>% filter(Course == "MKT 401") %>% group_by(Section, Assessment) %>% summar
 mdf %>% filter(Course == "MKT 401") %>% group_by(Section, UserId) %>% summarize(n = n()) %>% knitr::kable()
 ```
 
+### Discussion
 
+#### Sanity check
+
+```{r}
+mdf %>% filter(Course == "MKT 401") %>% group_by(Assessment, Name) %>% summarize(n = n()) %>% knitr::kable()
+```
+
+```{r}
+mdf %>% filter(Course == "MKT 401") %>% group_by(Section, Assessment, Name) %>% summarize(n_unique = n_distinct(UserId), n = n()) %>% knitr::kable()
+```
+
+Okay. Duplicates of same individual adds up to many sample.
 
 ## MBA
 Course for MBA PLO5 was not offered this term.
