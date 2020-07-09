@@ -652,8 +652,15 @@ x <- rowmap %>% filter(Program == "MBA") %>%
 knitr::kable(x %>% select(PLO, Description, ends_with("Assessment Course")))
 ```
 
+
+### Discussion
+
+#### Sanity check
+
 ```{r}
-mdf %>% filter(Course == "BUS 499") %>% group_by(Section) %>% summarise(n = n())
+mdf %>% filter(Course == "BUS 771") %>% group_by(Assessment, Name) %>% summarize(n_unique = n_distinct(UserId), n = n()) %>% knitr::kable()
 ```
+
+Good.
 
 # Next
