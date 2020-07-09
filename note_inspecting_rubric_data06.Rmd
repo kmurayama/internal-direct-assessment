@@ -569,11 +569,14 @@ knitr::kable(x %>% select(PLO, Description, ends_with("Assessment Course")))
 ```
 
 ### Discussion
-Sanity check 1: Numbers of students in each assignment
+
+#### Sanity check
+Numbers of students in each assignment
 ```{r}
 mdf %>% filter(Course == "BUS 345") %>% group_by(Assessment, Name) %>% summarize(n = n()) %>% knitr::kable()
 ```
 
+Final Paper only has 27 samples? Apparently it's from Neeley's Fall 2019 session 001. By comparing the rubric rows, it's obvious this refers to Ethics Final Paper. Update the data file...Done. Update results...
 
 
 ## Marketing
