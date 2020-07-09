@@ -251,23 +251,58 @@ x <- rowmap %>% filter(Program == "Business Core") %>%
 knitr::kable(x %>% select(PLO, Description, ends_with("Assessment Course")))
 ```
 
-### Discussion
+### Checking BUS 499
 
-Sanity check 1: Numbers of students in each assignment
-```{r}
-mdf %>% filter(Course == "BUS 499", Section == "BUS 499 GW1") %>% group_by(Semester) %>% summarise(n = n())
-mdf %>% filter(Course == "BUS 499", Section == "BUS 499 GW1", Semester == "Spring 2020") %>% group_by(Assessment.Original, Name) %>% summarize(n = n()) %>% knitr::kable()
-```
-
-COnfirmed: PLO2a is clicked for all students.
+According to Beth, PLO 2a for BUS 499 GW1 in Spring had all the levels in achievements.
 ```{r}
 mdf %>% filter(Section == "BUS 499 GW1", Assessment == "Annotated Bibliography", Semester == "Spring 2020", str_detect(Name, "Scholarly"))
 ```
 
-Three should be all the levels: missing good and basic.
+Clearly, good and basic are missing in the data.
 
 Issue with local-server sync?
 
+
+### Sanity check: Numbers of students in each assignment
+Check each section:
+```{r}
+x <- mdf %>% filter(Course == "BUS 499") %>% group_by(Semester, Section) %>% summarise(n = n_distinct(UserId))
+knitr::kable(x)
+```
+
+```{r}
+sections <- x$Section
+semesters <- x$Semester
+for(i in 1:nrow(x)){
+  semester <- semesters[i]
+  mdf %>% filter(Section == sections[i], Semester == semesters[i]) %>%
+    group_by(Assessment, Name) %>% summarise(n = n()) %>% 
+    group_by(Assessment) %>% summarise(min_n = min(n), max_n = max(n)) %>%
+    mutate(ID = paste(semesters[i], sections[i])) %>% 
+    print(knitr::kable())
+  
+}
+```
+
+Annotated bibliography in GW1 Spring was the only one severely affected.
+
+### GoVenture AAR Too Few?
+PLO 9 has only 15 samples. However, according to the table above, there should be 30 despite the lack of assessment in several sessions.
+```{r}
+mdf %>% filter(Assessment == "GoVenture AAR") %>% summarise(n = n_distinct(UserId))
+```
+
+```{r}
+mdf %>% filter(Assessment == "GoVenture AAR", str_detect(Name, "Plo9(a|b)"))
+```
+
+```{r}
+tbl3 %>% filter(str_detect(Assessment, "GoVenture"))
+```
+
+So... PLO and Assessment had a mismatch in one of sessions. Need to fix that in "Assessment Survey Responses.xlsx"...Done. Confirm it in the table above.
+
+This is a drawback of manual edits & convenient filtering by PLO tags. I need to check Assessment-PLO pairs to avoid this sort of mix up.
 
 
 ## Economics
