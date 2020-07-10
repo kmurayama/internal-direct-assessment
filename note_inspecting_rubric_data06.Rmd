@@ -1,12 +1,7 @@
 ---
 title: "Note to Inspect Rubric Data 6"
-date: "`r format(Sys.time(), '%d %B, %Y')`"
+date: 7/9/2020
 output:
-  html_notebook:
-    toc: yes
-    toc_float:
-      collapsed: yes
-    code_folding: hide
   html_document:
     toc: yes
     toc_float:
@@ -15,6 +10,11 @@ output:
     code_folding: hide
     fig_height: 7
     fig_width: 7
+  html_notebook:
+    toc: yes
+    toc_float:
+      collapsed: yes
+    code_folding: hide
 ---
 
 ```{r, echo=FALSE, include=FALSE}
@@ -740,3 +740,9 @@ mdf %>% filter(Course == "BUS 771") %>% group_by(Assessment, Name) %>% summarize
 Good.
 
 # Next
+
+1. Update `tbl1` and `tbl2` to be consistent.
+2. Export the `plotags` and search terms for corresponding rubric rows.
+3. Maintain the notebook format: sequential report section shall be kept as is. Append iterative notes.
+4. Waiting to hear from Chris and Rich.
+

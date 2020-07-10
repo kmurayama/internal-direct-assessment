@@ -1,0 +1,215 @@
+---
+title: "Note to Inspect Rubric Data 7"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output:
+  html_notebook:
+    toc: yes
+    toc_float:
+      collapsed: yes
+    code_folding: hide
+  html_document:
+    toc: yes
+    toc_float:
+      collapsed: no
+    df_print: paged
+    code_folding: hide
+    fig_height: 7
+    fig_width: 7
+---
+
+```{r, echo=FALSE, include=FALSE}
+#knitr::opts_chunk$set(message = FALSE, warning = FALSE)
+library(tidyverse)
+options(dplyr.summarise.inform=FALSE) 
+library(readxl)
+```
+
+Objective
+================================================================================
+Data are mostly cleaned and organized; PLOs are largely matched for Standard 4
+reporting; yet, there are several critically missing pieces. 1) Present the
+outcomes for those which are present and 2) sort out the current situation and
+follow up with faculty/staff for missing information (i.e. missing data,
+assessments, and mappings).
+
+
+
+Set up
+================================================================================
+Import data. Codes are externalized for reuse. As a reference:
+
+- `mdf` or main data frame contains the rubric outcome data merged with the course/assessment information gathered from the survey. Data are cleaned up.
+- `non` or non-rubric data frame is separated from the same data source as the
+rubric information of `mdf`. It contains the instructor's assessments of
+outcomes at course level. Data are cleaned up.
+- `past` data frame contains the assessment outcome data from the past.
+- `rowmap` data frame summarizes the mapping between PLOs and rubric rows.
+
+```{r}
+source('read.R')
+source('munge.R')
+```
+Those scripts have been updated to use the *edited* version of the survey result
+data. See Note 5 for details. Given that change, the Notebooks 1-5 are
+completely outdated.
+
+
+PLO Measures for Standard 4
+================================================================================
+Overview
+--------------------------------------------------------------------------------
+For Standard 4, we only need a rather small subset of the assessments available. Produce the summary of outcomes in the context of historical changes. 
+
+- ACBSP requires 3-5 data points, so make sure to have sufficient numbers.
+- ACBSP requires graphs with sample sizes.
+- Nuventive requires numbers. Produce data tables along with the graphs.
+
+Once Standard 4 is done, we can discuss weakness/shortcomings and
+strength/improvements in our program, then look at other courses - including the
+ones at an earlier stage of each program - to find *opportunities for
+improvement* and *close the loop*. That is, we can get to **Standard 6**
+analysis.
+
+
+Summarize Outcomes
+--------------------------------------------------------------------------------
+For this academic year, we have assessments both with and without rubrics. In the following, I summarize the rubric-based assessments - observed at individual level - at `Section` level, then combine them with the non-rubric-based assessments - observed at `Section` level. Then, the summarized data will be aggregated to `Course` level.
+
+```{r}
+tbl1 <- mdf %>% filter(str_detect(Name, "Major|Minor", negate = TRUE)) %>%
+  group_by(Course, Section, Semester, Assessment, Name, PLO) %>%
+  summarise(Met.UND = mean(Met.UND.bin), Met.GRD = mean(Met.GRD.bin),
+            n = n_distinct(UserId)) %>% 
+  mutate(Rubric = TRUE)
+
+tbl2 <- non %>% transmute(Course, Section, Semester, Assessment, Name = NA, PLO, Met.UND = np/n, Met.GRD = Met.UND, n, Rubric = FALSE)
+
+tbl3 <- bind_rows(tbl1, tbl2)
+dim(tbl3)
+```
+
+Aggregate over `Course` over `Section` and `Semester`. Average needs to be weighted by the size of each section.
+```{r}
+names(tbl3)
+
+tbl4 <- tbl3 %>%
+  group_by(Course, Assessment, PLO, Name) %>%
+  summarise(Met.UND = weighted.mean(Met.UND, n, na.rm = TRUE),
+            Met.GRD = weighted.mean(Met.GRD, n, na.rm = TRUE),
+            n = sum(n, na.rm = TRUE), n.sec = n_distinct(Section))
+knitr::kable(tbl4, dig = 2)
+```
+
+
+
+Prepare
+--------------------------------------------------------------------------------
+```{r}
+get_outcome <- function(plotag, rrow, program, plo, grad = FALSE){
+  if(is.na(plotag)){return(NA)}
+  if(grad){
+    tbl3 %>% filter(PLO == plotag, str_detect(Name, rrow)) %>% ungroup() %>% 
+      group_by(Rubric) %>% 
+      summarize(Met = mean(Met.GRD), n = min(n)) %>%
+      mutate(Program = program, PLO = plo)
+  }
+  else{
+    tbl3 %>% filter(PLO == plotag, str_detect(Name, rrow)) %>% ungroup() %>% 
+      group_by(Rubric) %>% 
+      summarize(Met = mean(Met), n = min(n)) %>%
+      mutate(Program = program, PLO = plo)
+  }
+}
+#get_outcome(plotag = "BUS 5, BUS 6", rrow = "5[a|b|c|d]",
+#            program = "Business Core", plo = 5)
+```
+
+```{r}
+#levels(factor(tbl3$PLO))
+list.plotags <- list("Accounting" = c("ACC 1", "ACC 2", NA, "ACC 4"),
+          "Business Core" = c(NA, "BUS 2", "BUS 3, BUS 5, BUS 6", "BUS 4, BUS 9",
+                              "BUS 3, BUS 5, BUS 6", "BUS 3, BUS 5, BUS 6",
+                              "BUS 7, BUS 8", "BUS 7, BUS 8", "BUS 4, BUS 9",
+                              "BUS 10"),
+          "Economics" = c(NA, "ECO 2", rep("ECO 3, ECO 4, ECO 5", 3)),
+          "Human Resources Management" = paste("HRM", 1:4),
+          "Management" = c(rep("MGT 1, MGT 2, MGT 3", 3), "MGT 4"),
+          "MBA" = c(paste("MBA", 1:4), NA, paste("MBA", 6:8))
+          )
+list.rrows <- list(
+  "Accounting" = rep("NA", 4),
+  "Business Core" = c(NA, "Plo2", "Plo3", "Plo4", "5[a|b|c|d]", "6[e|f|g]",
+                      "Plo7", "Plo8", "Plo9", ".*"),
+  "Economics" = c(NA, ".*", ".*", "Literature Review", "Discussion Of Empirical Results"),
+  "Human Resources Management" = c("Organizational Types",
+           "(Organizational Types)|(Organizational Strategy)",
+           "Hr Law", ".*"),
+  "Management" = c("Plo1", "Plo5", "Plo7", ".*"),
+  "MBA" = rep(".*", 8)
+  )
+# MIS, MKT
+```
+
+```{r}
+get_outcomes <- function(program, grad = FALSE){
+  # Wrapper to return a combined results for each program
+  lres <- list()
+  plotags <- list.plotags[[program]]
+  rrows <- list.rrows[[program]]
+  for(i in 1:length(plotags)){
+    lres[[i]] <- get_outcome(plotags[i], rrows[i], program, i, grad)
+  }
+  lres
+}
+
+merge_outcomes <- function(lres, program){
+  # Wrapper function to merge with the historical assessment results
+  lres <- lres[!is.na(lres)] # Missing assessment returns NA
+  x <- bind_rows(lres)
+  x <- x %>% ungroup() %>%
+    transmute(`Learning Objective Number` = PLO,
+              `Academic Year` = rep(2019, nrow(x)),
+              `Outcome` = Met, `Sample Size` = n, Rubric )
+  
+  y <- past %>%
+    filter(Program == program,
+           str_detect(`Assessment Type`, "(Internal$)|(Internal Formative)"),
+           str_detect(Source, "2020")) %>% 
+    select(`Learning Objective Number`, `Academic Year`,
+           Outcome, `Sample Size`)
+  out <- bind_rows(x, y)
+  out %>% arrange(`Learning Objective Number`, `Academic Year`)
+}
+
+getmerge_outcomes <- function(program, grad = FALSE){
+  lres <- get_outcomes(program, grad)
+  merge_outcomes(lres, program)
+}
+
+#getmerge_outcomes("Accounting")
+#past %>% filter(Program == "MBA", str_detect(`Assessment Type`, "(Internal$)|(Internal Formative)"))
+```
+
+```{r}
+make_graph <- function(df.out, program){
+  title <- paste0(program, ", Prevalence of Achievments Over Academic Years, by PLO")
+  caption <- "Grey number represents sample size.\nFor 2019, minimum sample size is used if prevalence is computed from multiple criteria."
+  
+  p <- ggplot(df.out, aes(x = `Academic Year`, y = Outcome,
+                          group = `Learning Objective Number`)) +
+    geom_line(na.rm = TRUE) +
+    geom_point(aes(color = Outcome > goal), na.rm = TRUE) +
+    scale_colour_manual(values = setNames(c('blue','red'),c(T, F))) +
+    geom_text(aes(`Academic Year`, 0.65, label = round(`Sample Size`, 0)),
+              alpha = 0.4, na.rm = TRUE) +
+    geom_hline(aes(yintercept = goal), alpha = 0.4, color = "red") +
+    scale_y_continuous(labels=scales::percent, breaks = seq(0, 1, 0.2))
+  p + facet_wrap(vars(`Learning Objective Number`)) +
+    theme_minimal() +
+    labs(title = title, caption = caption) +
+    theme(axis.title = element_blank(),
+          text = element_text(family = "serif"),
+          panel.grid.minor.x = element_blank(),
+          legend.position = "none")
+}
+```
