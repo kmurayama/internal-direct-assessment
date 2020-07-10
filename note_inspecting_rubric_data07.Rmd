@@ -196,6 +196,8 @@ getmerge_outcomes <- function(program, grad = FALSE){
 make_graph <- function(df.out, program){
   title <- paste0(program, ", Prevalence of Achievments Over Academic Years, by PLO")
   caption <- "Grey number represents sample size.\nFor 2019, minimum sample size is used if prevalence is computed from multiple criteria."
+  ymin <- min(min(acc$Outcome, na.rm = TRUE),
+              min(acc$`Outcome Goal` - 0.1, na.rm = TRUE))
   
   p <- ggplot(df.out, aes(x = `Academic Year`, y = Outcome,
                           group = `Learning Objective Number`)) +
@@ -205,7 +207,8 @@ make_graph <- function(df.out, program){
     geom_text(aes(`Academic Year`, 0.65, label = round(`Sample Size`, 0)),
               alpha = 0.4, na.rm = TRUE) +
     geom_hline(aes(yintercept = `Outcome Goal`), alpha = 0.4, color = "red") +
-    scale_y_continuous(labels=scales::percent, breaks = seq(0, 1, 0.2))
+    scale_y_continuous(labels=scales::percent,
+                       breaks = seq(0, 1, 0.2), limits = c(ymin, NA))
   p + facet_wrap(vars(`Learning Objective Number`)) +
     theme_minimal() +
     labs(title = title, caption = caption) +
@@ -229,9 +232,14 @@ knitr::kable(acc %>% filter(`Academic Year` == 2019), dig=2)
 ```{r}
 make_graph(acc, "Accounting")
 ```
+
+Business Core
+--------------------------------------------------------------------------------
+
 ```{r}
-x <- rowmap %>% filter(Program == "Accounting") %>%
-  discard(~all(is.na(.x))) %>% map_df(~.x) %>% 
-  select(-c(Program, Goal, `Last Checked`))
-knitr::kable(x %>% select(PLO, Description, ends_with("Assessment Course")))
+bus <- getmerge_outcomes("Business Core")
+knitr::kable(bus %>% filter(`Academic Year` == 2019), dig=2)
+```
+```{r}
+make_graph(bus, "Business Core")
 ```
