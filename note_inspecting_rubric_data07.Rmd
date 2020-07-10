@@ -224,22 +224,62 @@ Outcomes
 ================================================================================
 Accounting
 --------------------------------------------------------------------------------
-
 ```{r}
 acc <- getmerge_outcomes("Accounting")
-knitr::kable(acc %>% filter(`Academic Year` == 2019), dig=2)
-```
-```{r}
 make_graph(acc, "Accounting")
 ```
 
 Business Core
 --------------------------------------------------------------------------------
-
 ```{r}
 bus <- getmerge_outcomes("Business Core")
-knitr::kable(bus %>% filter(`Academic Year` == 2019), dig=2)
-```
-```{r}
 make_graph(bus, "Business Core")
 ```
+
+Economics
+--------------------------------------------------------------------------------
+```{r}
+eco <- getmerge_outcomes("Economics")
+make_graph(eco, "Economics")
+```
+
+Finance
+--------------------------------------------------------------------------------
+
+Human Resources Management
+--------------------------------------------------------------------------------
+```{r}
+hrm <- getmerge_outcomes("Human Resources Management")
+make_graph(hrm, "Human Resources Management")
+```
+
+Management
+--------------------------------------------------------------------------------
+```{r}
+acc <- getmerge_outcomes("Accounting")
+make_graph(acc, "Accounting")
+```
+
+Marketing
+--------------------------------------------------------------------------------
+```{r}
+acc <- getmerge_outcomes("Accounting")
+make_graph(acc, "Accounting")
+```
+
+MBA
+--------------------------------------------------------------------------------
+```{r}
+acc <- getmerge_outcomes("Accounting")
+make_graph(acc, "Accounting")
+```
+
+MIS
+--------------------------------------------------------------------------------
+```{r}
+acc <- getmerge_outcomes("Accounting")
+make_graph(acc, "Accounting")
+```
+
+Next
+================================================================================
