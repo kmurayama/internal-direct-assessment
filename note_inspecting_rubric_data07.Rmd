@@ -53,6 +53,22 @@ Those scripts have been updated to use the *edited* version of the survey result
 data. See Note 5 for details. Given that change, the Notebooks 1-5 are
 completely outdated.
 
+New Issues
+--------------------------------------------------------------------------------
+New things in this note:
+
+- [x] Drop BUS 499 GW1 Spring 2020 Annotated Bibliography from data, while adding the observed into non-rubric
+- [x] Drop ECO 421 001 from data, while adding the observed into non-rubric
+- [x] Drop HRM 400 001 from data, while adding the observed into non-rubric
+
+```{r}
+mdf.original <- mdf
+mdf <- mdf %>%
+  filter(!( (Section == "BUS 499 GW1" & Semester == "Spring 2020" & Assessment == "Annotated Bibliography") |
+             Section == "ECO 421 001" | Section == "HRM 400 001"))
+```
+
+
 
 PLO Measures for Standard 4
 ================================================================================
@@ -86,6 +102,22 @@ tbl2 <- non %>% transmute(Course, Section, Semester, Assessment, Name = "NA", PL
 
 tbl3 <- bind_rows(tbl1, tbl2)
 ```
+Add scraped data into the table.
+```{r}
+x <- tibble(Course = c(rep("HRM 400", 3), "BUS 499", rep("ECO 421", 3)), 
+            Section = c(rep("HRM 400 001", 3), "BUS 499 GW1", rep("ECO 421 001", 3)), 
+            Semester = c(rep("Spring 2020", 4), rep("Fall 2019", 3)),
+            Assessment = c(paste("Paper", 1:3), "Annotated Bibliography", paste("Final Paper", 1:3)),
+            Name = rep("Retrieved", 7),
+            PLO = c(paste("HRM", 1:3), "BUS 2", rep("ECO 3, ECO 4, ECO 5", 3)),
+            Met.UND = c(0.35, 0.57, 0.73, 0.87, 0.91, 0.91, 0.82),
+            Met.GRD = c(0.35, 0.57, 0.73, 0.87, 0.91, 0.91, 0.82),
+            n = c(rep(14, 3), 15, rep(11, 3)),
+            Rubric = TRUE
+            )
+x
+tbl3 <- bind_rows(tbl3, x)
+```
 
 Aggregate over `Course` over `Section` and `Semester`. Average needs to be weighted by the size of each section.
 ```{r}
@@ -94,10 +126,25 @@ tbl4 <- tbl3 %>%
   summarise(Met.UND = weighted.mean(Met.UND, n, na.rm = TRUE),
             Met.GRD = weighted.mean(Met.GRD, n, na.rm = TRUE),
             n = sum(n, na.rm = TRUE), n.sec = n_distinct(Section))
-knitr::kable(tbl4, dig = 2)
+```
+
+```{r}
+tbl4 %>% filter(PLO == "BUS 2", str_detect(Name, "(Plo2)|(Retrieved)"))
 ```
 
 
+```{r}
+tbl4 %>% filter(PLO == "BUS 2", str_detect(Name, "(Plo2)|(Retrieved)")) %>% ungroup() %>% summarize(Met = mean(Met.UND, na.rm = TRUE), n = min(n))
+```
+
+That's wrong. One has 43 students (in 3 sections) and the other has 15 (in 1 section), then n should be 58. But I can't simply add them up to avoid double count.
+
+Aggregation at `tbl4` introduced another inconsistency. Ones from `tbl1` is in `Section`-`Assessment`-`Name`, while ones from `tbl2` is in `Section` (no disaggregation of assessment or rubric rows).
+
+Not problematic for `HRM 400` and `ECO 421` because their observations are entirely replaced. For `BUS 499 GW1`, I can enter each rubric row.
+
+
+- [ ] Enter each row of BUS 499
 
 Prepare
 --------------------------------------------------------------------------------
@@ -134,12 +181,12 @@ list.plotags <- list(
   )
 list.rrows <- list(
   "Accounting" = c(rep("NA", 2), NA, "NA"),
-  "Business Core" = c(NA, "Plo2", "Plo3", "Plo4", "5[a|b|c|d]", "6[e|f|g]",
+  "Business Core" = c(NA, "(Plo2)|(Retrieved)", "Plo3", "Plo4", "5[a|b|c|d]", "6[e|f|g]",
                       "Plo7", "Plo8", "Plo9", ".*"),
-  "Economics" = c(NA, ".*", ".*", "Literature Review", "Discussion Of Empirical Results"),
-  "Human Resources Management" = c("Organizational Types",
-           "(Organizational Types)|(Organizational Strategy)",
-           "Hr Law", ".*"),
+  "Economics" = c(NA, ".*", ".*", "(Literature Review)|(Retrieved)", "(Discussion Of Empirical Results)|(Retrieved)"),
+  "Human Resources Management" = c("(Organizational Types)|(Retrieved)",
+           "(Organizational Types)|(Organizational Strategy)|(Retrieved)",
+           "(Hr Law)|(Retrieved)", ".*"),
   "Management" = c("Plo1", "Plo5", "Plo7", ".*"),
   "MBA" = rep(".*", 8)
   )
@@ -196,8 +243,8 @@ getmerge_outcomes <- function(program, grad = FALSE){
 make_graph <- function(df.out, program){
   title <- paste0(program, ", Prevalence of Achievments Over Academic Years, by PLO")
   caption <- "Grey number represents sample size.\nFor 2019, minimum sample size is used if prevalence is computed from multiple criteria."
-  ymin <- min(min(acc$Outcome, na.rm = TRUE),
-              min(acc$`Outcome Goal` - 0.1, na.rm = TRUE))
+  ymin <- min(min(df.out$Outcome, na.rm = TRUE),
+              min(df.out$`Outcome Goal` - 0.1, na.rm = TRUE))
   
   p <- ggplot(df.out, aes(x = `Academic Year`, y = Outcome,
                           group = `Learning Objective Number`)) +
@@ -208,7 +255,7 @@ make_graph <- function(df.out, program){
               alpha = 0.4, na.rm = TRUE) +
     geom_hline(aes(yintercept = `Outcome Goal`), alpha = 0.4, color = "red") +
     scale_y_continuous(labels=scales::percent,
-                       breaks = seq(0, 1, 0.2), limits = c(ymin, NA))
+                       breaks = seq(0, 1, 0.2), limits = c(ymin, 1))
   p + facet_wrap(vars(`Learning Objective Number`)) +
     theme_minimal() +
     labs(title = title, caption = caption) +
@@ -256,30 +303,22 @@ make_graph(hrm, "Human Resources Management")
 Management
 --------------------------------------------------------------------------------
 ```{r}
-acc <- getmerge_outcomes("Accounting")
-make_graph(acc, "Accounting")
+mgt <- getmerge_outcomes("Management")
+make_graph(mgt, "Management")
 ```
 
 Marketing
 --------------------------------------------------------------------------------
-```{r}
-acc <- getmerge_outcomes("Accounting")
-make_graph(acc, "Accounting")
-```
 
 MBA
 --------------------------------------------------------------------------------
 ```{r}
-acc <- getmerge_outcomes("Accounting")
-make_graph(acc, "Accounting")
+mba <- getmerge_outcomes("MBA", grad = TRUE)
+make_graph(mba, "MBA")
 ```
 
 MIS
 --------------------------------------------------------------------------------
-```{r}
-acc <- getmerge_outcomes("Accounting")
-make_graph(acc, "Accounting")
-```
 
 Next
 ================================================================================
