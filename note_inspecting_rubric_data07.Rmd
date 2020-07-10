@@ -85,13 +85,10 @@ tbl1 <- mdf %>% filter(str_detect(Name, "Major|Minor", negate = TRUE)) %>%
 tbl2 <- non %>% transmute(Course, Section, Semester, Assessment, Name = "NA", PLO, Met.UND = np/n, Met.GRD = Met.UND, n, Rubric = FALSE)
 
 tbl3 <- bind_rows(tbl1, tbl2)
-dim(tbl3)
 ```
 
 Aggregate over `Course` over `Section` and `Semester`. Average needs to be weighted by the size of each section.
 ```{r}
-names(tbl3)
-
 tbl4 <- tbl3 %>%
   group_by(Course, Assessment, PLO, Name) %>%
   summarise(Met.UND = weighted.mean(Met.UND, n, na.rm = TRUE),
@@ -106,7 +103,7 @@ Prepare
 --------------------------------------------------------------------------------
 ```{r}
 get_outcome <- function(plotag, rrow, program, plo, grad = FALSE){
-  if(is.na(plotag)){return(NA)}
+  if(is.na(rrow)){return(tibble(n = NA, Program = program, Met = NA, PLO = plo))}
   if(grad){
     tbl4 %>% filter(PLO == plotag, str_detect(Name, rrow)) %>% ungroup() %>% 
       summarize(Met = mean(Met.GRD), n = min(n)) %>%
@@ -136,7 +133,7 @@ list.plotags <- list(
   "MBA" = c(paste("MBA", 1:4), NA, paste("MBA", 6:8))
   )
 list.rrows <- list(
-  "Accounting" = rep("NA", 4),
+  "Accounting" = c(rep("NA", 2), NA, "NA"),
   "Business Core" = c(NA, "Plo2", "Plo3", "Plo4", "5[a|b|c|d]", "6[e|f|g]",
                       "Plo7", "Plo8", "Plo9", ".*"),
   "Economics" = c(NA, ".*", ".*", "Literature Review", "Discussion Of Empirical Results"),
@@ -171,19 +168,17 @@ get_outcomes <- function(program, grad = FALSE){
 
 merge_outcomes <- function(lres, program){
   # Wrapper function to merge with the historical assessment results
-  lres <- lres[!is.na(lres)] # Missing assessment returns NA
+  #lres <- lres[!is.na(lres)] # Missing assessment returns NA
   x <- bind_rows(lres)
   x <- x %>% ungroup() %>%
     transmute(`Learning Objective Number` = PLO,
               `Academic Year` = rep(2019, nrow(x)),
-              `Outcome` = Met, `Sample Size` = n)
+              `Outcome` = Met, `Sample Size` = n, `Outcome Goal` = list.goals[[program]])
   
   y <- past %>%
-    filter(Program == program,
-           str_detect(`Assessment Type`, "(Internal$)|(Internal Formative)"),
-           str_detect(Source, "2020")) %>% 
+    filter(Program == program, `Assessment Type Orientation` == "Internal") %>% 
     select(`Learning Objective Number`, `Academic Year`,
-           Outcome, `Sample Size`)
+           Outcome, `Sample Size`, `Outcome Goal`)
   out <- bind_rows(x, y)
   out %>% arrange(`Learning Objective Number`, `Academic Year`)
 }
@@ -205,11 +200,11 @@ make_graph <- function(df.out, program){
   p <- ggplot(df.out, aes(x = `Academic Year`, y = Outcome,
                           group = `Learning Objective Number`)) +
     geom_line(na.rm = TRUE) +
-    geom_point(aes(color = Outcome > goal), na.rm = TRUE) +
+    geom_point(aes(color = Outcome > `Outcome Goal`), na.rm = TRUE) +
     scale_colour_manual(values = setNames(c('blue','red'),c(T, F))) +
     geom_text(aes(`Academic Year`, 0.65, label = round(`Sample Size`, 0)),
               alpha = 0.4, na.rm = TRUE) +
-    geom_hline(aes(yintercept = goal), alpha = 0.4, color = "red") +
+    geom_hline(aes(yintercept = `Outcome Goal`), alpha = 0.4, color = "red") +
     scale_y_continuous(labels=scales::percent, breaks = seq(0, 1, 0.2))
   p + facet_wrap(vars(`Learning Objective Number`)) +
     theme_minimal() +
@@ -232,8 +227,6 @@ acc <- getmerge_outcomes("Accounting")
 knitr::kable(acc %>% filter(`Academic Year` == 2019), dig=2)
 ```
 ```{r}
-ref <- tibble(`Learning Objective Number` = 1:4, goal = rep(0.7, 4))
-acc <- acc %>% left_join(ref, by = "Learning Objective Number")
 make_graph(acc, "Accounting")
 ```
 ```{r}
@@ -242,8 +235,3 @@ x <- rowmap %>% filter(Program == "Accounting") %>%
   select(-c(Program, Goal, `Last Checked`))
 knitr::kable(x %>% select(PLO, Description, ends_with("Assessment Course")))
 ```
-
-
-- [ ] Update data to have goals
-- [ ] Update function to include goals in 2019
-
