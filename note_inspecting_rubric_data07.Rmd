@@ -82,7 +82,7 @@ tbl1 <- mdf %>% filter(str_detect(Name, "Major|Minor", negate = TRUE)) %>%
             n = n_distinct(UserId)) %>% 
   mutate(Rubric = TRUE)
 
-tbl2 <- non %>% transmute(Course, Section, Semester, Assessment, Name = NA, PLO, Met.UND = np/n, Met.GRD = Met.UND, n, Rubric = FALSE)
+tbl2 <- non %>% transmute(Course, Section, Semester, Assessment, Name = "NA", PLO, Met.UND = np/n, Met.GRD = Met.UND, n, Rubric = FALSE)
 
 tbl3 <- bind_rows(tbl1, tbl2)
 dim(tbl3)
@@ -108,34 +108,33 @@ Prepare
 get_outcome <- function(plotag, rrow, program, plo, grad = FALSE){
   if(is.na(plotag)){return(NA)}
   if(grad){
-    tbl3 %>% filter(PLO == plotag, str_detect(Name, rrow)) %>% ungroup() %>% 
-      group_by(Rubric) %>% 
+    tbl4 %>% filter(PLO == plotag, str_detect(Name, rrow)) %>% ungroup() %>% 
       summarize(Met = mean(Met.GRD), n = min(n)) %>%
       mutate(Program = program, PLO = plo)
   }
   else{
-    tbl3 %>% filter(PLO == plotag, str_detect(Name, rrow)) %>% ungroup() %>% 
-      group_by(Rubric) %>% 
-      summarize(Met = mean(Met), n = min(n)) %>%
+    tbl4 %>% filter(PLO == plotag, str_detect(Name, rrow)) %>% ungroup() %>% 
+      summarize(Met = mean(Met.UND), n = min(n)) %>%
       mutate(Program = program, PLO = plo)
   }
 }
-#get_outcome(plotag = "BUS 5, BUS 6", rrow = "5[a|b|c|d]",
-#            program = "Business Core", plo = 5)
+#get_outcome(plotag = "ACC 1", rrow = "NA",
+#            program = "Accounting", plo = 5)
 ```
 
 ```{r}
 #levels(factor(tbl3$PLO))
-list.plotags <- list("Accounting" = c("ACC 1", "ACC 2", NA, "ACC 4"),
-          "Business Core" = c(NA, "BUS 2", "BUS 3, BUS 5, BUS 6", "BUS 4, BUS 9",
-                              "BUS 3, BUS 5, BUS 6", "BUS 3, BUS 5, BUS 6",
-                              "BUS 7, BUS 8", "BUS 7, BUS 8", "BUS 4, BUS 9",
-                              "BUS 10"),
-          "Economics" = c(NA, "ECO 2", rep("ECO 3, ECO 4, ECO 5", 3)),
-          "Human Resources Management" = paste("HRM", 1:4),
-          "Management" = c(rep("MGT 1, MGT 2, MGT 3", 3), "MGT 4"),
-          "MBA" = c(paste("MBA", 1:4), NA, paste("MBA", 6:8))
-          )
+list.plotags <- list(
+  "Accounting" = c("ACC 1", "ACC 2", NA, "ACC 4"),
+  "Business Core" = c(NA, "BUS 2", "BUS 3, BUS 5, BUS 6", "BUS 4, BUS 9",
+                      "BUS 3, BUS 5, BUS 6", "BUS 3, BUS 5, BUS 6",
+                      "BUS 7, BUS 8", "BUS 7, BUS 8", "BUS 4, BUS 9",
+                      "BUS 10"),
+  "Economics" = c(NA, "ECO 2", rep("ECO 3, ECO 4, ECO 5", 3)),
+  "Human Resources Management" = paste("HRM", 1:4),
+  "Management" = c(rep("MGT 1, MGT 2, MGT 3", 3), "MGT 4"),
+  "MBA" = c(paste("MBA", 1:4), NA, paste("MBA", 6:8))
+  )
 list.rrows <- list(
   "Accounting" = rep("NA", 4),
   "Business Core" = c(NA, "Plo2", "Plo3", "Plo4", "5[a|b|c|d]", "6[e|f|g]",
@@ -147,6 +146,14 @@ list.rrows <- list(
   "Management" = c("Plo1", "Plo5", "Plo7", ".*"),
   "MBA" = rep(".*", 8)
   )
+list.goals <- list(
+  "Accounting" = rep(0.7, 4),
+  "Business Core" = c(rep(0.7, 8), 0.9, 0.7),
+  "Economics" = rep(0.7, 5),
+  "Human Resources Management" = rep(0.7, 4),
+  "Management" = rep(0.7, 4),
+  "MBA" = rep(0.85, 8)
+)
 # MIS, MKT
 ```
 
@@ -169,7 +176,7 @@ merge_outcomes <- function(lres, program){
   x <- x %>% ungroup() %>%
     transmute(`Learning Objective Number` = PLO,
               `Academic Year` = rep(2019, nrow(x)),
-              `Outcome` = Met, `Sample Size` = n, Rubric )
+              `Outcome` = Met, `Sample Size` = n)
   
   y <- past %>%
     filter(Program == program,
@@ -213,3 +220,30 @@ make_graph <- function(df.out, program){
           legend.position = "none")
 }
 ```
+
+
+Outcomes
+================================================================================
+Accounting
+--------------------------------------------------------------------------------
+
+```{r}
+acc <- getmerge_outcomes("Accounting")
+knitr::kable(acc %>% filter(`Academic Year` == 2019), dig=2)
+```
+```{r}
+ref <- tibble(`Learning Objective Number` = 1:4, goal = rep(0.7, 4))
+acc <- acc %>% left_join(ref, by = "Learning Objective Number")
+make_graph(acc, "Accounting")
+```
+```{r}
+x <- rowmap %>% filter(Program == "Accounting") %>%
+  discard(~all(is.na(.x))) %>% map_df(~.x) %>% 
+  select(-c(Program, Goal, `Last Checked`))
+knitr::kable(x %>% select(PLO, Description, ends_with("Assessment Course")))
+```
+
+
+- [ ] Update data to have goals
+- [ ] Update function to include goals in 2019
+
