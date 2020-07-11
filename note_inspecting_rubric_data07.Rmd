@@ -148,8 +148,8 @@ Another issue is found in MBA. Since I distinguished summative/formative, it pic
 
 
 - [ ] Enter each row of BUS 499
-- [ ] Deal with varying goals
-- [ ] Deal with summative/formative objectives
+- [x] Deal with varying goals
+- [ ] Deal with summative/formative objectives >> Overhaul functions...
 
 Prepare
 --------------------------------------------------------------------------------
@@ -171,55 +171,18 @@ get_outcome <- function(plotag, rrow, program, plo, grad = FALSE){
 #            program = "Accounting", plo = 5)
 ```
 
-```{r, eval=FALSE}
-#levels(factor(tbl3$PLO))
-list.plotags <- list(
-  "Accounting" = c("ACC 1", "ACC 2", NA, "ACC 4"),
-  "Business Core" = c(NA, "BUS 2", "BUS 3, BUS 5, BUS 6", "BUS 4, BUS 9",
-                      "BUS 3, BUS 5, BUS 6", "BUS 3, BUS 5, BUS 6",
-                      "BUS 7, BUS 8", "BUS 7, BUS 8", "BUS 4, BUS 9",
-                      "BUS 10"),
-  "Economics" = c(NA, "ECO 2", rep("ECO 3, ECO 4, ECO 5", 3)),
-  "Human Resources Management" = paste("HRM", 1:4),
-  "Management" = c(rep("MGT 1, MGT 2, MGT 3", 3), "MGT 4"),
-  "MBA" = c(paste("MBA", 1:4), NA, paste("MBA", 6:8))
-  )
-list.rrows <- list(
-  "Accounting" = c(rep("No Rubric", 2), NA, "No Rubric"),
-  "Business Core" = c(NA, "(Plo2)|(Retrieved)", "Plo3", "Plo4", "5[a|b|c|d]", "6[e|f|g]",
-                      "Plo7", "Plo8", "Plo9", ".*"),
-  "Economics" = c(NA, ".*", ".*", "(Literature Review)|(Retrieved)", "(Discussion Of Empirical Results)|(Retrieved)"),
-  "Human Resources Management" = c("(Organizational Types)|(Retrieved)",
-           "(Organizational Types)|(Organizational Strategy)|(Retrieved)",
-           "(Hr Law)|(Retrieved)", ".*"),
-  "Management" = c("Plo1", "Plo5", "Plo7", ".*"),
-  "MBA" = rep(".*", 8)
-  )
-list.goals <- list(
-  "Accounting" = rep(0.7, 4),
-  "Business Core" = c(rep(0.7, 8), 0.9, 0.7),
-  "Economics" = rep(0.7, 5),
-  "Human Resources Management" = rep(0.7, 4),
-  "Management" = rep(0.7, 4),
-  "MBA" = rep(0.85, 8)
-)
-# MIS, MKT
-x1 <- stack(list.plotags)
-x2 <- stack(list.rrows)
-x3 <- stack(list.goals)
-
-names(x1) <- c("PLO.Tags", "Program")
-
-
-x4 <- bind_cols(x1, "Rubric.Rows" = x2[, 1]) %>% bind_cols("Goals" = x3[, 1])
-write_csv(x4, path = "data/mapping_keys.csv")
-```
-
-
 ```{r}
 keys.all <- read_csv("data/mapping_keys.csv", na = "NA")
 knitr::kable(keys.all)
 ```
+
+```{r}
+keys.all %>% filter(Program == "MBA")
+past %>% filter(Program == "MBA", `Assessment Type Orientation` == "Internal")
+names(past)
+```
+
+It would be straight forward to add 2019 data with sufficient information, rather than selecting relevant rows...?
 
 ```{r}
 get_outcomes <- function(program, grad = FALSE){
