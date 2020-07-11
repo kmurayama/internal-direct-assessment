@@ -98,7 +98,7 @@ tbl1 <- mdf %>% filter(str_detect(Name, "Major|Minor", negate = TRUE)) %>%
             n = n_distinct(UserId)) %>% 
   mutate(Rubric = TRUE)
 
-tbl2 <- non %>% transmute(Course, Section, Semester, Assessment, Name = "NA", PLO, Met.UND = np/n, Met.GRD = Met.UND, n, Rubric = FALSE)
+tbl2 <- non %>% transmute(Course, Section, Semester, Assessment, Name = "No Rubric", PLO, Met.UND = np/n, Met.GRD = Met.UND, n, Rubric = FALSE)
 
 tbl3 <- bind_rows(tbl1, tbl2)
 ```
@@ -171,7 +171,7 @@ get_outcome <- function(plotag, rrow, program, plo, grad = FALSE){
 #            program = "Accounting", plo = 5)
 ```
 
-```{r}
+```{r, eval=FALSE}
 #levels(factor(tbl3$PLO))
 list.plotags <- list(
   "Accounting" = c("ACC 1", "ACC 2", NA, "ACC 4"),
@@ -185,7 +185,7 @@ list.plotags <- list(
   "MBA" = c(paste("MBA", 1:4), NA, paste("MBA", 6:8))
   )
 list.rrows <- list(
-  "Accounting" = c(rep("NA", 2), NA, "NA"),
+  "Accounting" = c(rep("No Rubric", 2), NA, "No Rubric"),
   "Business Core" = c(NA, "(Plo2)|(Retrieved)", "Plo3", "Plo4", "5[a|b|c|d]", "6[e|f|g]",
                       "Plo7", "Plo8", "Plo9", ".*"),
   "Economics" = c(NA, ".*", ".*", "(Literature Review)|(Retrieved)", "(Discussion Of Empirical Results)|(Retrieved)"),
@@ -204,14 +204,30 @@ list.goals <- list(
   "MBA" = rep(0.85, 8)
 )
 # MIS, MKT
+x1 <- stack(list.plotags)
+x2 <- stack(list.rrows)
+x3 <- stack(list.goals)
+
+names(x1) <- c("PLO.Tags", "Program")
+
+
+x4 <- bind_cols(x1, "Rubric.Rows" = x2[, 1]) %>% bind_cols("Goals" = x3[, 1])
+write_csv(x4, path = "data/mapping_keys.csv")
+```
+
+
+```{r}
+keys.all <- read_csv("data/mapping_keys.csv", na = "NA")
+knitr::kable(keys.all)
 ```
 
 ```{r}
 get_outcomes <- function(program, grad = FALSE){
   # Wrapper to return a combined results for each program
+  keys <- keys.all %>% filter(Program == program)
   lres <- list()
-  plotags <- list.plotags[[program]]
-  rrows <- list.rrows[[program]]
+  plotags <- keys$PLO.Tags
+  rrows <- keys$Rubric.Rows
   for(i in 1:length(plotags)){
     lres[[i]] <- get_outcome(plotags[i], rrows[i], program, i, grad)
   }
@@ -220,12 +236,13 @@ get_outcomes <- function(program, grad = FALSE){
 
 merge_outcomes <- function(lres, program){
   # Wrapper function to merge with the historical assessment results
+  keys <- keys.all %>% filter(Program == program)
   #lres <- lres[!is.na(lres)] # Missing assessment returns NA
   x <- bind_rows(lres)
   x <- x %>% ungroup() %>%
     transmute(`Learning Objective Number` = PLO,
               `Academic Year` = rep(2019, nrow(x)),
-              `Outcome` = Met, `Sample Size` = n, `Outcome Goal` = list.goals[[program]])
+              `Outcome` = Met, `Sample Size` = n, `Outcome Goal` = keys$Goals)
   
   y <- past %>%
     filter(Program == program, `Assessment Type Orientation` == "Internal") %>% 
