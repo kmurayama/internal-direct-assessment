@@ -128,6 +128,8 @@ tbl4 <- tbl3 %>%
             n = sum(n, na.rm = TRUE), n.sec = n_distinct(Section))
 ```
 
+New Issues Follow Up
+--------------------------------------------------------------------------------
 ```{r}
 tbl4 %>% filter(PLO == "BUS 2", str_detect(Name, "(Plo2)|(Retrieved)"))
 ```
@@ -138,13 +140,16 @@ tbl4 %>% filter(PLO == "BUS 2", str_detect(Name, "(Plo2)|(Retrieved)")) %>% ungr
 ```
 
 That's wrong. One has 43 students (in 3 sections) and the other has 15 (in 1 section), then n should be 58. But I can't simply add them up to avoid double count.
-
-Aggregation at `tbl4` introduced another inconsistency. Ones from `tbl1` is in `Section`-`Assessment`-`Name`, while ones from `tbl2` is in `Section` (no disaggregation of assessment or rubric rows).
-
+ Aggregation at `tbl4` introduced another inconsistency. Ones from `tbl1` is in `Section`-`Assessment`-`Name`, while ones from `tbl2` is in `Section` (no disaggregation of assessment or rubric rows). 
 Not problematic for `HRM 400` and `ECO 421` because their observations are entirely replaced. For `BUS 499 GW1`, I can enter each rubric row.
 
 
+Another issue is found in MBA. Since I distinguished summative/formative, it picks up both and make the graph messed up. I can solve this by making yet another source with only relevant past data... or add a switch for summative/formative.
+
+
 - [ ] Enter each row of BUS 499
+- [ ] Deal with varying goals
+- [ ] Deal with summative/formative objectives
 
 Prepare
 --------------------------------------------------------------------------------
