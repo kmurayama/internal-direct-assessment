@@ -102,76 +102,64 @@ level - at `Section` level, then combine them with the non-rubric-based
 assessments - observed at `Section` level. Then, the summarized data will be
 aggregated to `Course` level.
 
+The individual data has `r nrow(mdf)` rows, while there are `r
+n_distinct(mdf$UserId)` distinctive students, `r n_distinct(mdf$RubricId)`
+rubrics with `r n_distinct(mdf$Name)` rows for `r n_distinct(mdf$Course)`
+courses. Implementations of those courses are distinguished by `r
+n_distinct(mdf$Section)` `Sections` over three `Semester`.
+
+The data pulled from D2L contains Rubric ID, but not associated with courses or
+instructors. Such additional information is provided through the survey
+collected. They are merged in the script above and issues like inconsistent
+names and typos have been handled, resulting in `mdf` data frame. Meanwhile, the
+survey also contains the information about non-rubric assessments. They are
+cleaned and separated into `non` data frame.
+
+The individual data are necessary for analyzing the grade distributions and possible correlations in various grades. However, Standard 4 only requires the aggregates.  Therefore, I will summarize the outcomes at the aggregation level of course and rubric row.
+
+First, the individual-level data are aggregated to `Course`-`Section`-`Semester`-`Assessment`-`Name`(Rubric Row) level ("Section & Rubric Row" level). At this stage, each implementation is distinguishable. Instructor level analysis can be done. In the aggregation, proportions of students who met the goal are calculated.
+
+Second, the Section & Rubric Row level data above is combined with the rubric data *scraped from the D2L directly*. There are some missing in the retrieved D2L data. As a temporary measure, student outcomes are collected from D2L course pages manually. The results are summarized at the rubric row levels; hence compatible with the aggregated data mentioned above.
+
+The non-rubric assessments mentioned before are merged at this stage. However, unlike the scraped data, those non-rubric assessments do not have rows. (All the rows are labeled "No Rubric".) If both rubric and non-rubric assessments exist, they need to be distinguished (Use `Rubric` flag).
+
+Third, the data are aggregated to the course level, erasing the distinction between sections. This level is used for student outcome assessment. The resulting data is distinguished at `Course`-`Assessment`-`Name`(Rubric Row).
+
 ```{r}
 tbl1 <- mdf %>% filter(str_detect(Name, "Major|Minor", negate = TRUE)) %>%
   group_by(Course, Section, Semester, Assessment, Name, PLO) %>%
   summarise(Met.UND = mean(Met.UND.bin), Met.GRD = mean(Met.GRD.bin),
-            n = n_distinct(UserId)) %>% 
-  mutate(Rubric = TRUE)
-
-tbl2 <- non %>% transmute(Course, Section, Semester, Assessment,
-                          Name = "No Rubric", PLO, Met.UND = np/n,
-                          Met.GRD = Met.UND, n, Rubric = FALSE)
-
-tbl3 <- bind_rows(tbl1, tbl2)
+            n = n_distinct(UserId),
+            Rubric = TRUE)
+```
+```{r}
+miss <- read_excel("data/D2L Missing Data Retrievals.xlsx", "Scraped")
+miss <- miss %>%
+  select(-c(Unsatisfactory:Advanced)) %>% mutate(Met.UND = Met, Met.GRD = Met)
+tbl2 <- bind_rows(tbl1, miss)
+#tbl2 %>% filter(Course == "BUS 499", Assessment == "Annotated Bibliography")
+```
+```{r}
+tbl3 <- tbl2 %>%
+  bind_rows(non %>% transmute(Course, Section, Semester, Assessment,
+                              Name = "No Rubric", PLO,
+                              Met.UND = np/n, Met.GRD = Met.UND, n,
+                              Rubric = FALSE))
 ```
 
-Add scraped data into the table.
-```{r}
-x <- tibble(Course = c(rep("HRM 400", 3), "BUS 499", rep("ECO 421", 3)), 
-            Section = c(rep("HRM 400 001", 3), "BUS 499 GW1", rep("ECO 421 001", 3)), 
-            Semester = c(rep("Spring 2020", 4), rep("Fall 2019", 3)),
-            Assessment = c(paste("Paper", 1:3), "Annotated Bibliography", paste("Final Paper", 1:3)),
-            Name = rep("Retrieved", 7),
-            PLO = c(paste("HRM", 1:3), "BUS 2", rep("ECO 3, ECO 4, ECO 5", 3)),
-            Met.UND = c(0.35, 0.57, 0.73, 0.87, 0.91, 0.91, 0.82),
-            Met.GRD = c(0.35, 0.57, 0.73, 0.87, 0.91, 0.91, 0.82),
-            n = c(rep(14, 3), 15, rep(11, 3)),
-            Rubric = TRUE
-            )
-x
-tbl3 <- bind_rows(tbl3, x)
-```
 
-Finally, aggregate over `Course` over `Section` and `Semester`. Average needs to be weighted by the size of each section.
 ```{r}
-tbl4 <- tbl3 %>%
-  group_by(Course, Assessment, PLO, Name) %>%
+tbl4 <- tbl3 %>% 
+  group_by(Course, Assessment, Name, PLO, Rubric) %>%
   summarise(Met.UND = weighted.mean(Met.UND, n, na.rm = TRUE),
             Met.GRD = weighted.mean(Met.GRD, n, na.rm = TRUE),
-            n = sum(n, na.rm = TRUE), n.sec = n_distinct(Section))
+            n = sum(n, na.rm = TRUE), n.sec = n_distinct(Section),
+            Rubric = TRUE)
+summary(tbl4)
 ```
 
-
-New Issues Follow Up
+Prepare New
 --------------------------------------------------------------------------------
-```{r}
-tbl4 %>% filter(PLO == "BUS 2", str_detect(Name, "(Plo2)|(Retrieved)"))
-```
-
-
-```{r}
-tbl4 %>% filter(PLO == "BUS 2", str_detect(Name, "(Plo2)|(Retrieved)")) %>% ungroup() %>% summarize(Met = mean(Met.UND, na.rm = TRUE), n = min(n))
-```
-
-That's wrong. One has 43 students (in 3 sections) and the other has 15 (in 1
-section), then n should be 58. But I can't simply add them up to avoid double
-count. Aggregation at `tbl4` introduced another inconsistency. Ones from `tbl1`
-is in `Section`-`Assessment`-`Name`, while ones from `tbl2` is in `Section` (no
-disaggregation of assessment or rubric rows).  Not problematic for `HRM 400` and
-`ECO 421` because their observations are entirely replaced. For `BUS 499 GW1`, I
-can enter each rubric row.
-
-
-Another issue is found in MBA. Since I distinguished summative/formative, it
-picks up both and make the graph messed up. I can solve this by making yet
-another source with only relevant past data... or add a switch for
-summative/formative.
-
-
-- [x] Enter each row of BUS 499
-- [x] Deal with varying goals
-- [ ] Deal with summative/formative objectives >> Overhaul functions...
 
 
 Prepare
