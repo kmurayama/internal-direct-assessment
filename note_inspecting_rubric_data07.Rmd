@@ -193,7 +193,7 @@ get_outcome <- function(plotag, rrow, program, plo,
 
 ```{r}
 keys.all <- read_csv("data/mapping_keys.csv", na = "NA")
-knitr::kable(keys.all)
+#knitr::kable(keys.all)
 ```
 
 ```{r}
@@ -229,7 +229,20 @@ getbind_outcomes <- function(program, grad = FALSE){
 #get_outcomes("Accounting")
 #get_outcomes("Business Core")
 #get_outcomes("Economics")
-getbind_outcomes("Accounting")
+```
+
+```{r}
+all <- getbind_outcomes("Accounting") %>%
+  bind_rows(getbind_outcomes("Business Core")) %>% 
+  bind_rows(getbind_outcomes("Economics")) %>% 
+#  bind_rows(getbind_outcomes("Finance")) %>% 
+  bind_rows(getbind_outcomes("Human Resources Management")) %>% 
+  bind_rows(getbind_outcomes("Management")) %>% 
+#  bind_rows(getbind_outcomes("Marketing")) %>% 
+  bind_rows(getbind_outcomes("MBA")) %>% 
+  bind_rows(past)
+
+summary(all)
 ```
 
 
