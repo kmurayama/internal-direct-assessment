@@ -154,12 +154,36 @@ tbl4 <- tbl3 %>%
   summarise(Met.UND = weighted.mean(Met.UND, n, na.rm = TRUE),
             Met.GRD = weighted.mean(Met.GRD, n, na.rm = TRUE),
             n = sum(n, na.rm = TRUE), n.sec = n_distinct(Section),
-            Rubric = TRUE)
+            Rubric = TRUE) %>% 
+  ungroup()
 summary(tbl4)
 ```
 
 Prepare New
 --------------------------------------------------------------------------------
+```{r}
+get_outcome <- function(plotag, rrow, program, plo, grad = FALSE){
+  # Extract assessment by PLO Tags and Rubric Row (pattern matching)
+  # Returns NA if Rubric Row is NA.
+  if(is.na(rrow)){return(tibble(n = NA, Program = program, Met = NA, PLO = plo))}
+  x <- tbl4 %>% filter(PLO == plotag, str_detect(Name, rrow))
+  if(nrow(x) == 0){
+    warning("Criteria result in empty dataset.\n")
+    return(NA)
+    }
+  out <- x %>% group_by(Rubric) %>% 
+      summarize(Met.GRD = mean(Met.GRD), Met.UND = mean(Met.UND), n = min(n)) %>%
+      mutate(Program = program, PLO = plo)
+  if(grad){
+    out %>% mutate(Met = Met.GRD)
+  }
+  else{
+    out %>% mutate(Met = Met.UND)
+  }
+}
+#get_outcome(plotag = "ACC 1", rrow = "NA", program = "Accounting", plo = 1)
+#get_outcome(plotag = "ACC 1", rrow = "No Rubric", program = "Accounting", plo = 1)
+```
 
 
 Prepare
