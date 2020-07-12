@@ -36,7 +36,9 @@ assessments, and mappings).
 
 Set up
 ================================================================================
-Import data. Codes are externalized for reuse. As a reference:
+Import Data
+--------------------------------------------------------------------------------
+Codes are externalized for reuse. As a reference, data frames are as follows:
 
 - `mdf` or main data frame contains the rubric outcome data merged with the course/assessment information gathered from the survey. Data are cleaned up.
 - `non` or non-rubric data frame is separated from the same data source as the
@@ -53,28 +55,33 @@ Those scripts have been updated to use the *edited* version of the survey result
 data. See Note 5 for details. Given that change, the Notebooks 1-5 are
 completely outdated.
 
+
 New Issues
 --------------------------------------------------------------------------------
 New things in this note:
 
-- [x] Drop BUS 499 GW1 Spring 2020 Annotated Bibliography from data, while adding the observed into non-rubric
+- [x] Drop BUS 499 GW1 Spring 2020 Annotated Bibliography from data, while
+adding the observed into non-rubric
 - [x] Drop ECO 421 001 from data, while adding the observed into non-rubric
 - [x] Drop HRM 400 001 from data, while adding the observed into non-rubric
 
 ```{r}
 mdf.original <- mdf
 mdf <- mdf %>%
-  filter(!( (Section == "BUS 499 GW1" & Semester == "Spring 2020" & Assessment == "Annotated Bibliography") |
+  filter(!( (Section == "BUS 499 GW1" & Semester == "Spring 2020" &
+               Assessment == "Annotated Bibliography") |
              Section == "ECO 421 001" | Section == "HRM 400 001"))
 ```
 
+Then scraped data will be re-introduced in the following.
 
 
 PLO Measures for Standard 4
 ================================================================================
 Overview
 --------------------------------------------------------------------------------
-For Standard 4, we only need a rather small subset of the assessments available. Produce the summary of outcomes in the context of historical changes. 
+For Standard 4, we only need a rather small subset of the assessments available.
+Produce the summary of outcomes in the context of historical changes.
 
 - ACBSP requires 3-5 data points, so make sure to have sufficient numbers.
 - ACBSP requires graphs with sample sizes.
@@ -89,7 +96,11 @@ analysis.
 
 Summarize Outcomes
 --------------------------------------------------------------------------------
-For this academic year, we have assessments both with and without rubrics. In the following, I summarize the rubric-based assessments - observed at individual level - at `Section` level, then combine them with the non-rubric-based assessments - observed at `Section` level. Then, the summarized data will be aggregated to `Course` level.
+For this academic year, we have assessments both with and without rubrics. In
+the following, I summarize the rubric-based assessments - observed at individual
+level - at `Section` level, then combine them with the non-rubric-based
+assessments - observed at `Section` level. Then, the summarized data will be
+aggregated to `Course` level.
 
 ```{r}
 tbl1 <- mdf %>% filter(str_detect(Name, "Major|Minor", negate = TRUE)) %>%
@@ -98,10 +109,13 @@ tbl1 <- mdf %>% filter(str_detect(Name, "Major|Minor", negate = TRUE)) %>%
             n = n_distinct(UserId)) %>% 
   mutate(Rubric = TRUE)
 
-tbl2 <- non %>% transmute(Course, Section, Semester, Assessment, Name = "No Rubric", PLO, Met.UND = np/n, Met.GRD = Met.UND, n, Rubric = FALSE)
+tbl2 <- non %>% transmute(Course, Section, Semester, Assessment,
+                          Name = "No Rubric", PLO, Met.UND = np/n,
+                          Met.GRD = Met.UND, n, Rubric = FALSE)
 
 tbl3 <- bind_rows(tbl1, tbl2)
 ```
+
 Add scraped data into the table.
 ```{r}
 x <- tibble(Course = c(rep("HRM 400", 3), "BUS 499", rep("ECO 421", 3)), 
@@ -119,7 +133,7 @@ x
 tbl3 <- bind_rows(tbl3, x)
 ```
 
-Aggregate over `Course` over `Section` and `Semester`. Average needs to be weighted by the size of each section.
+Finally, aggregate over `Course` over `Section` and `Semester`. Average needs to be weighted by the size of each section.
 ```{r}
 tbl4 <- tbl3 %>%
   group_by(Course, Assessment, PLO, Name) %>%
@@ -127,6 +141,7 @@ tbl4 <- tbl3 %>%
             Met.GRD = weighted.mean(Met.GRD, n, na.rm = TRUE),
             n = sum(n, na.rm = TRUE), n.sec = n_distinct(Section))
 ```
+
 
 New Issues Follow Up
 --------------------------------------------------------------------------------
@@ -139,17 +154,25 @@ tbl4 %>% filter(PLO == "BUS 2", str_detect(Name, "(Plo2)|(Retrieved)"))
 tbl4 %>% filter(PLO == "BUS 2", str_detect(Name, "(Plo2)|(Retrieved)")) %>% ungroup() %>% summarize(Met = mean(Met.UND, na.rm = TRUE), n = min(n))
 ```
 
-That's wrong. One has 43 students (in 3 sections) and the other has 15 (in 1 section), then n should be 58. But I can't simply add them up to avoid double count.
- Aggregation at `tbl4` introduced another inconsistency. Ones from `tbl1` is in `Section`-`Assessment`-`Name`, while ones from `tbl2` is in `Section` (no disaggregation of assessment or rubric rows). 
-Not problematic for `HRM 400` and `ECO 421` because their observations are entirely replaced. For `BUS 499 GW1`, I can enter each rubric row.
+That's wrong. One has 43 students (in 3 sections) and the other has 15 (in 1
+section), then n should be 58. But I can't simply add them up to avoid double
+count. Aggregation at `tbl4` introduced another inconsistency. Ones from `tbl1`
+is in `Section`-`Assessment`-`Name`, while ones from `tbl2` is in `Section` (no
+disaggregation of assessment or rubric rows).  Not problematic for `HRM 400` and
+`ECO 421` because their observations are entirely replaced. For `BUS 499 GW1`, I
+can enter each rubric row.
 
 
-Another issue is found in MBA. Since I distinguished summative/formative, it picks up both and make the graph messed up. I can solve this by making yet another source with only relevant past data... or add a switch for summative/formative.
+Another issue is found in MBA. Since I distinguished summative/formative, it
+picks up both and make the graph messed up. I can solve this by making yet
+another source with only relevant past data... or add a switch for
+summative/formative.
 
 
-- [ ] Enter each row of BUS 499
+- [x] Enter each row of BUS 499
 - [x] Deal with varying goals
 - [ ] Deal with summative/formative objectives >> Overhaul functions...
+
 
 Prepare
 --------------------------------------------------------------------------------
@@ -182,7 +205,8 @@ past %>% filter(Program == "MBA", `Assessment Type Orientation` == "Internal")
 names(past)
 ```
 
-It would be straight forward to add 2019 data with sufficient information, rather than selecting relevant rows...?
+It would be straight forward to add 2019 data with sufficient information,
+rather than selecting relevant rows...?
 
 ```{r}
 get_outcomes <- function(program, grad = FALSE){
@@ -254,56 +278,23 @@ make_graph <- function(df.out, program){
 
 Outcomes
 ================================================================================
-Accounting
+Try
 --------------------------------------------------------------------------------
 ```{r}
 acc <- getmerge_outcomes("Accounting")
 make_graph(acc, "Accounting")
-```
-
-Business Core
---------------------------------------------------------------------------------
-```{r}
 bus <- getmerge_outcomes("Business Core")
 make_graph(bus, "Business Core")
-```
-
-Economics
---------------------------------------------------------------------------------
-```{r}
 eco <- getmerge_outcomes("Economics")
 make_graph(eco, "Economics")
-```
-
-Finance
---------------------------------------------------------------------------------
-
-Human Resources Management
---------------------------------------------------------------------------------
-```{r}
 hrm <- getmerge_outcomes("Human Resources Management")
 make_graph(hrm, "Human Resources Management")
-```
-
-Management
---------------------------------------------------------------------------------
-```{r}
 mgt <- getmerge_outcomes("Management")
 make_graph(mgt, "Management")
-```
-
-Marketing
---------------------------------------------------------------------------------
-
-MBA
---------------------------------------------------------------------------------
-```{r}
 mba <- getmerge_outcomes("MBA", grad = TRUE)
 make_graph(mba, "MBA")
 ```
 
-MIS
---------------------------------------------------------------------------------
 
 Next
 ================================================================================
