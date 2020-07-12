@@ -165,7 +165,12 @@ Prepare New
 get_outcome <- function(plotag, rrow, program, plo, 
                         grad = FALSE, ori = NA, type = NA){
   # Extract assessment by PLO Tags and Rubric Row (pattern matching)
-  if(is.na(rrow)){return(tibble(n = NA, Program = program, Met = NA, PLO = plo))}
+  if(is.na(rrow)){
+    return(
+      tibble(Rubric = NA, n = NA,
+             Program = program, PLO = plo, Orientation = ori, Type = type,
+             Ay = 2019, Target = NA, Unit = "Prevalence", Goal = NA,
+             Met = NA))}
   x <- tbl4 %>% filter(PLO == plotag, str_detect(Name, rrow))
   if(nrow(x) == 0){
     warning(paste("Criteria result in empty dataset for", plotag, ".\n"))
@@ -173,7 +178,8 @@ get_outcome <- function(plotag, rrow, program, plo,
     }
   out <- x %>% group_by(Rubric) %>% 
       summarize(Met.GRD = mean(Met.GRD), Met.UND = mean(Met.UND), n = min(n)) %>%
-      mutate(Program = program, PLO = plo, Orientation = ori, Type = type)
+      mutate(Program = program, PLO = plo, Orientation = ori, Type = type,
+             AY = 2019, Target = NA, Unit = "Prevalence", Goal = NA)
   if(grad){
     out %>% mutate(Met = Met.GRD) %>% select(-starts_with("Met."))
   }
@@ -205,141 +211,25 @@ get_outcomes <- function(program, grad = FALSE){
   }
   lres
 }
+
+bind_outcomes <- function(lres){
+  bind_rows(lres) %>% ungroup() %>%
+    rename(Program = Program, `Goal Number` = Goal,
+           `Learning Objective Number` = PLO,
+           `Assessment Type Orientation` = Orientation,
+           `Assessment Type` = Type, `Academic Year` = AY,
+           `Sample Size` = n, Outcome = Met,
+           `Outcome Unit` = Unit, `Outcome Goal` = Goal, Rubric = Rubric)
+}
+
+getbind_outcomes <- function(program, grad = FALSE){
+  lres <- get_outcomes(program, grad)
+  bind_outcomes(lres)
+}
 #get_outcomes("Accounting")
 #get_outcomes("Business Core")
 #get_outcomes("Economics")
-```
-
-Now here's the different step. Merging partial data for each prgram serves little purpose. Just have all the new results. Then, merge it into the whole history.
-
-For graph, I can select relevant results.
-
-
-For this purpose, it's better if I can have outcomes to be compatible with the existing data.
-
-```{r}
-names(past)
-```
-
-Prepare
---------------------------------------------------------------------------------
-```{r}
-get_outcome <- function(plotag, rrow, program, plo, grad = FALSE){
-  if(is.na(rrow)){return(tibble(n = NA, Program = program, Met = NA, PLO = plo))}
-  if(grad){
-    tbl4 %>% filter(PLO == plotag, str_detect(Name, rrow)) %>% ungroup() %>% 
-      summarize(Met = mean(Met.GRD), n = min(n)) %>%
-      mutate(Program = program, PLO = plo)
-  }
-  else{
-    tbl4 %>% filter(PLO == plotag, str_detect(Name, rrow)) %>% ungroup() %>% 
-      summarize(Met = mean(Met.UND), n = min(n)) %>%
-      mutate(Program = program, PLO = plo)
-  }
-}
-#get_outcome(plotag = "ACC 1", rrow = "NA",
-#            program = "Accounting", plo = 5)
-```
-
-```{r}
-keys.all <- read_csv("data/mapping_keys.csv", na = "NA")
-knitr::kable(keys.all)
-```
-
-```{r}
-keys.all %>% filter(Program == "MBA")
-past %>% filter(Program == "MBA", `Assessment Type Orientation` == "Internal")
-names(past)
-```
-
-It would be straight forward to add 2019 data with sufficient information,
-rather than selecting relevant rows...?
-
-```{r}
-get_outcomes <- function(program, grad = FALSE){
-  # Wrapper to return a combined results for each program
-  keys <- keys.all %>% filter(Program == program)
-  lres <- list()
-  plotags <- keys$PLO.Tags
-  rrows <- keys$Rubric.Rows
-  for(i in 1:length(plotags)){
-    lres[[i]] <- get_outcome(plotags[i], rrows[i], program, i, grad)
-  }
-  lres
-}
-
-merge_outcomes <- function(lres, program){
-  # Wrapper function to merge with the historical assessment results
-  keys <- keys.all %>% filter(Program == program)
-  #lres <- lres[!is.na(lres)] # Missing assessment returns NA
-  x <- bind_rows(lres)
-  x <- x %>% ungroup() %>%
-    transmute(`Learning Objective Number` = PLO,
-              `Academic Year` = rep(2019, nrow(x)),
-              `Outcome` = Met, `Sample Size` = n, `Outcome Goal` = keys$Goals)
-  
-  y <- past %>%
-    filter(Program == program, `Assessment Type Orientation` == "Internal") %>% 
-    select(`Learning Objective Number`, `Academic Year`,
-           Outcome, `Sample Size`, `Outcome Goal`)
-  out <- bind_rows(x, y)
-  out %>% arrange(`Learning Objective Number`, `Academic Year`)
-}
-
-getmerge_outcomes <- function(program, grad = FALSE){
-  lres <- get_outcomes(program, grad)
-  merge_outcomes(lres, program)
-}
-
-#getmerge_outcomes("Accounting")
-#past %>% filter(Program == "MBA", str_detect(`Assessment Type`, "(Internal$)|(Internal Formative)"))
-```
-
-```{r}
-make_graph <- function(df.out, program){
-  title <- paste0(program, ", Prevalence of Achievments Over Academic Years, by PLO")
-  caption <- "Grey number represents sample size.\nFor 2019, minimum sample size is used if prevalence is computed from multiple criteria."
-  ymin <- min(min(df.out$Outcome, na.rm = TRUE),
-              min(df.out$`Outcome Goal` - 0.1, na.rm = TRUE))
-  
-  p <- ggplot(df.out, aes(x = `Academic Year`, y = Outcome,
-                          group = `Learning Objective Number`)) +
-    geom_line(na.rm = TRUE) +
-    geom_point(aes(color = Outcome > `Outcome Goal`), na.rm = TRUE) +
-    scale_colour_manual(values = setNames(c('blue','red'),c(T, F))) +
-    geom_text(aes(`Academic Year`, 0.65, label = round(`Sample Size`, 0)),
-              alpha = 0.4, na.rm = TRUE) +
-    geom_hline(aes(yintercept = `Outcome Goal`), alpha = 0.4, color = "red") +
-    scale_y_continuous(labels=scales::percent,
-                       breaks = seq(0, 1, 0.2), limits = c(ymin, 1))
-  p + facet_wrap(vars(`Learning Objective Number`)) +
-    theme_minimal() +
-    labs(title = title, caption = caption) +
-    theme(axis.title = element_blank(),
-          text = element_text(family = "serif"),
-          panel.grid.minor.x = element_blank(),
-          legend.position = "none")
-}
-```
-
-
-Outcomes
-================================================================================
-Try
---------------------------------------------------------------------------------
-```{r}
-acc <- getmerge_outcomes("Accounting")
-make_graph(acc, "Accounting")
-bus <- getmerge_outcomes("Business Core")
-make_graph(bus, "Business Core")
-eco <- getmerge_outcomes("Economics")
-make_graph(eco, "Economics")
-hrm <- getmerge_outcomes("Human Resources Management")
-make_graph(hrm, "Human Resources Management")
-mgt <- getmerge_outcomes("Management")
-make_graph(mgt, "Management")
-mba <- getmerge_outcomes("MBA", grad = TRUE)
-make_graph(mba, "MBA")
+getbind_outcomes("Accounting")
 ```
 
 
