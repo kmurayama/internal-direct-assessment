@@ -162,29 +162,64 @@ summary(tbl4)
 Prepare New
 --------------------------------------------------------------------------------
 ```{r}
-get_outcome <- function(plotag, rrow, program, plo, grad = FALSE){
+get_outcome <- function(plotag, rrow, program, plo, 
+                        grad = FALSE, ori = NA, type = NA){
   # Extract assessment by PLO Tags and Rubric Row (pattern matching)
-  # Returns NA if Rubric Row is NA.
   if(is.na(rrow)){return(tibble(n = NA, Program = program, Met = NA, PLO = plo))}
   x <- tbl4 %>% filter(PLO == plotag, str_detect(Name, rrow))
   if(nrow(x) == 0){
-    warning("Criteria result in empty dataset.\n")
+    warning(paste("Criteria result in empty dataset for", plotag, ".\n"))
     return(NA)
     }
   out <- x %>% group_by(Rubric) %>% 
       summarize(Met.GRD = mean(Met.GRD), Met.UND = mean(Met.UND), n = min(n)) %>%
-      mutate(Program = program, PLO = plo)
+      mutate(Program = program, PLO = plo, Orientation = ori, Type = type)
   if(grad){
-    out %>% mutate(Met = Met.GRD)
+    out %>% mutate(Met = Met.GRD) %>% select(-starts_with("Met."))
   }
   else{
-    out %>% mutate(Met = Met.UND)
+    out %>% mutate(Met = Met.UND) %>% select(-starts_with("Met."))
   }
 }
 #get_outcome(plotag = "ACC 1", rrow = "NA", program = "Accounting", plo = 1)
 #get_outcome(plotag = "ACC 1", rrow = "No Rubric", program = "Accounting", plo = 1)
 ```
 
+```{r}
+keys.all <- read_csv("data/mapping_keys.csv", na = "NA")
+knitr::kable(keys.all)
+```
+
+```{r}
+get_outcomes <- function(program, grad = FALSE){
+  # Wrapper to return a combined results for each program
+  keys <- keys.all %>% filter(Program == program)
+  lres <- list()
+  plotags <- keys$PLO.Tags
+  rrows <- keys$Rubric.Rows
+  orientations <- keys$Orientation
+  types <- keys$Type
+  for(i in 1:length(plotags)){
+    lres[[i]] <- get_outcome(plotags[i], rrows[i], program, i,
+                             grad, orientations[i], types[i])
+  }
+  lres
+}
+#get_outcomes("Accounting")
+#get_outcomes("Business Core")
+#get_outcomes("Economics")
+```
+
+Now here's the different step. Merging partial data for each prgram serves little purpose. Just have all the new results. Then, merge it into the whole history.
+
+For graph, I can select relevant results.
+
+
+For this purpose, it's better if I can have outcomes to be compatible with the existing data.
+
+```{r}
+names(past)
+```
 
 Prepare
 --------------------------------------------------------------------------------
