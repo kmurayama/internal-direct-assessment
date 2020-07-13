@@ -36,7 +36,9 @@ assessments, and mappings).
 
 Set up
 ================================================================================
-Import data. Codes are externalized for reuse. As a reference:
+Import Data
+--------------------------------------------------------------------------------
+Codes are externalized for reuse. As a reference, data frames are as follows:
 
 - `mdf` or main data frame contains the rubric outcome data merged with the course/assessment information gathered from the survey. Data are cleaned up.
 - `non` or non-rubric data frame is separated from the same data source as the
@@ -54,11 +56,32 @@ data. See Note 5 for details. Given that change, the Notebooks 1-5 are
 completely outdated.
 
 
+New Issues
+--------------------------------------------------------------------------------
+New things in this note:
+
+- [x] Drop BUS 499 GW1 Spring 2020 Annotated Bibliography from data, while
+adding the observed into non-rubric
+- [x] Drop ECO 421 001 from data, while adding the observed into non-rubric
+- [x] Drop HRM 400 001 from data, while adding the observed into non-rubric
+
+```{r}
+mdf.original <- mdf
+mdf <- mdf %>%
+  filter(!( (Section == "BUS 499 GW1" & Semester == "Spring 2020" &
+               Assessment == "Annotated Bibliography") |
+             Section == "ECO 421 001" | Section == "HRM 400 001"))
+```
+
+Then scraped data will be re-introduced in the following.
+
+
 PLO Measures for Standard 4
 ================================================================================
 Overview
 --------------------------------------------------------------------------------
-For Standard 4, we only need a rather small subset of the assessments available. Produce the summary of outcomes in the context of historical changes. 
+For Standard 4, we only need a rather small subset of the assessments available.
+Produce the summary of outcomes in the context of historical changes.
 
 - ACBSP requires 3-5 data points, so make sure to have sufficient numbers.
 - ACBSP requires graphs with sample sizes.
@@ -73,144 +96,196 @@ analysis.
 
 Summarize Outcomes
 --------------------------------------------------------------------------------
-For this academic year, we have assessments both with and without rubrics. In the following, I summarize the rubric-based assessments - observed at individual level - at `Section` level, then combine them with the non-rubric-based assessments - observed at `Section` level. Then, the summarized data will be aggregated to `Course` level.
+For this academic year, we have assessments both with and without rubrics. In
+the following, I summarize the rubric-based assessments - observed at individual
+level - at `Section` level, then combine them with the non-rubric-based
+assessments - observed at `Section` level. Then, the summarized data will be
+aggregated to `Course` level.
+
+The individual data has `r nrow(mdf)` rows, while there are `r
+n_distinct(mdf$UserId)` distinctive students, `r n_distinct(mdf$RubricId)`
+rubrics with `r n_distinct(mdf$Name)` rows for `r n_distinct(mdf$Course)`
+courses. Implementations of those courses are distinguished by `r
+n_distinct(mdf$Section)` `Sections` over three `Semester`.
+
+The data pulled from D2L contains Rubric ID, but not associated with courses or
+instructors. Such additional information is provided through the survey
+collected. They are merged in the script above and issues like inconsistent
+names and typos have been handled, resulting in `mdf` data frame. Meanwhile, the
+survey also contains the information about non-rubric assessments. They are
+cleaned and separated into `non` data frame.
+
+The individual data are necessary for analyzing the grade distributions and
+possible correlations in various grades. However, Standard 4 only requires the
+aggregates.  Therefore, I will summarize the outcomes at the aggregation level
+of course and rubric row.
+
+First, the individual-level data are aggregated to
+`Course`-`Section`-`Semester`-`Assessment`-`Name`(Rubric Row) level ("Section &
+Rubric Row" level). At this stage, each implementation is distinguishable.
+Instructor level analysis can be done. In the aggregation, proportions of
+students who met the goal are calculated.
+
+Second, the Section & Rubric Row level data above is combined with the rubric
+data *scraped from the D2L directly*. There are some missing in the retrieved
+D2L data. As a temporary measure, student outcomes are collected from D2L course
+pages manually. The results are summarized at the rubric row levels; hence
+compatible with the aggregated data mentioned above.
+
+The non-rubric assessments mentioned before are merged at this stage. However,
+unlike the scraped data, those non-rubric assessments do not have rows. (All the
+rows are labeled "No Rubric".) If both rubric and non-rubric assessments exist,
+they need to be distinguished (Use `Rubric` flag).
+
+Third, the data are aggregated to the course level, erasing the distinction
+between sections. This level is used for student outcome assessment. The
+resulting data is distinguished at `Course`-`Assessment`-`Name`(Rubric Row).
 
 ```{r}
 tbl1 <- mdf %>% filter(str_detect(Name, "Major|Minor", negate = TRUE)) %>%
   group_by(Course, Section, Semester, Assessment, Name, PLO) %>%
   summarise(Met.UND = mean(Met.UND.bin), Met.GRD = mean(Met.GRD.bin),
-            n = n_distinct(UserId)) %>% 
-  mutate(Rubric = TRUE)
-
-tbl2 <- non %>% transmute(Course, Section, Semester, Assessment, Name = "NA", PLO, Met.UND = np/n, Met.GRD = Met.UND, n, Rubric = FALSE)
-
-tbl3 <- bind_rows(tbl1, tbl2)
-```
-
-Aggregate over `Course` over `Section` and `Semester`. Average needs to be weighted by the size of each section.
-```{r}
-tbl4 <- tbl3 %>%
-  group_by(Course, Assessment, PLO, Name) %>%
+            n = n_distinct(UserId),
+            Rubric = TRUE)
+miss <- read_excel("data/D2L Missing Data Retrievals.xlsx", "Scraped")
+miss <- miss %>%
+  select(-c(Unsatisfactory:Advanced)) %>% mutate(Met.UND = Met, Met.GRD = Met)
+tbl2 <- bind_rows(tbl1, miss)
+tbl3 <- tbl2 %>%
+  bind_rows(non %>% transmute(Course, Section, Semester, Assessment,
+                              Name = "No Rubric", PLO,
+                              Met.UND = np/n, Met.GRD = Met.UND, n,
+                              Rubric = FALSE))
+tbl4 <- tbl3 %>% 
+  group_by(Course, Assessment, Name, PLO, Rubric) %>%
   summarise(Met.UND = weighted.mean(Met.UND, n, na.rm = TRUE),
             Met.GRD = weighted.mean(Met.GRD, n, na.rm = TRUE),
-            n = sum(n, na.rm = TRUE), n.sec = n_distinct(Section))
-knitr::kable(tbl4, dig = 2)
+            n = sum(n, na.rm = TRUE), n.sec = n_distinct(Section),
+            Rubric = TRUE) %>% 
+  ungroup()
 ```
-
-
 
 Prepare
 --------------------------------------------------------------------------------
+All the `Course`-`Assessment`-`Name`(Rubric Row) level observations are
+summarized in `tbl4`. In order to get Program Learning Objective (PLO) level
+aggregation, they need to be aggregated following the specifications summarized
+in mapping keys.
+
 ```{r}
-get_outcome <- function(plotag, rrow, program, plo, grad = FALSE){
-  if(is.na(rrow)){return(tibble(n = NA, Program = program, Met = NA, PLO = plo))}
+get_outcome <- function(plotag, rrow, program, plo, 
+                        grad = FALSE, ori = NA, type = NA,
+                        target = NA, unit = NA, goal = NA){
+  # Extract assessment by PLO Tags and Rubric Row (pattern matching)
+  if(is.na(rrow)){
+    return(
+      tibble(Rubric = NA, n = NA,
+             Program = program, PG = NA, PLO = plo,
+             Orientation = ori, Type = type,
+             AY = 2019, Target = FALSE, Unit = "Prevalence", Goal = NA,
+             Met = NA))}
+  x <- tbl4 %>% filter(PLO == plotag, str_detect(Name, rrow))
+  if(nrow(x) == 0){
+    warning(paste("Criteria result in empty dataset for", plotag, ".\n"))
+    return(NA)
+    }
+  out <- x %>% group_by(Rubric) %>% 
+      summarize(Met.GRD = mean(Met.GRD), Met.UND = mean(Met.UND), n = min(n)) %>%
+      mutate(Program = program, PG = NA, PLO = plo,
+             Orientation = ori, Type = type,
+             AY = 2019, Target = target, Unit = "Prevalence", Goal = goal)
   if(grad){
-    tbl4 %>% filter(PLO == plotag, str_detect(Name, rrow)) %>% ungroup() %>% 
-      summarize(Met = mean(Met.GRD), n = min(n)) %>%
-      mutate(Program = program, PLO = plo)
+    out %>% mutate(Met = Met.GRD) %>% select(-starts_with("Met."))
   }
   else{
-    tbl4 %>% filter(PLO == plotag, str_detect(Name, rrow)) %>% ungroup() %>% 
-      summarize(Met = mean(Met.UND), n = min(n)) %>%
-      mutate(Program = program, PLO = plo)
+    out %>% mutate(Met = Met.UND) %>% select(-starts_with("Met."))
   }
 }
-#get_outcome(plotag = "ACC 1", rrow = "NA",
-#            program = "Accounting", plo = 5)
+#get_outcome(plotag = "ACC 1", rrow = "NA", program = "Accounting", plo = 1)
+#get_outcome(plotag = "ACC 1", rrow = "No Rubric", program = "Accounting", plo = 1)
 ```
-
 ```{r}
-#levels(factor(tbl3$PLO))
-list.plotags <- list(
-  "Accounting" = c("ACC 1", "ACC 2", NA, "ACC 4"),
-  "Business Core" = c(NA, "BUS 2", "BUS 3, BUS 5, BUS 6", "BUS 4, BUS 9",
-                      "BUS 3, BUS 5, BUS 6", "BUS 3, BUS 5, BUS 6",
-                      "BUS 7, BUS 8", "BUS 7, BUS 8", "BUS 4, BUS 9",
-                      "BUS 10"),
-  "Economics" = c(NA, "ECO 2", rep("ECO 3, ECO 4, ECO 5", 3)),
-  "Human Resources Management" = paste("HRM", 1:4),
-  "Management" = c(rep("MGT 1, MGT 2, MGT 3", 3), "MGT 4"),
-  "MBA" = c(paste("MBA", 1:4), NA, paste("MBA", 6:8))
-  )
-list.rrows <- list(
-  "Accounting" = c(rep("NA", 2), NA, "NA"),
-  "Business Core" = c(NA, "Plo2", "Plo3", "Plo4", "5[a|b|c|d]", "6[e|f|g]",
-                      "Plo7", "Plo8", "Plo9", ".*"),
-  "Economics" = c(NA, ".*", ".*", "Literature Review", "Discussion Of Empirical Results"),
-  "Human Resources Management" = c("Organizational Types",
-           "(Organizational Types)|(Organizational Strategy)",
-           "Hr Law", ".*"),
-  "Management" = c("Plo1", "Plo5", "Plo7", ".*"),
-  "MBA" = rep(".*", 8)
-  )
-list.goals <- list(
-  "Accounting" = rep(0.7, 4),
-  "Business Core" = c(rep(0.7, 8), 0.9, 0.7),
-  "Economics" = rep(0.7, 5),
-  "Human Resources Management" = rep(0.7, 4),
-  "Management" = rep(0.7, 4),
-  "MBA" = rep(0.85, 8)
-)
-# MIS, MKT
+keys.all <- read_csv("data/mapping_keys.csv", na = "NA")
+#knitr::kable(keys.all)
 ```
-
 ```{r}
 get_outcomes <- function(program, grad = FALSE){
   # Wrapper to return a combined results for each program
+  keys <- keys.all %>% filter(Program == program)
   lres <- list()
-  plotags <- list.plotags[[program]]
-  rrows <- list.rrows[[program]]
+  plotags <- keys$PLO.Tags
+  rrows <- keys$Rubric.Rows
+  orientations <- keys$Orientation
+  types <- keys$Type
+  goals <- keys$Goals
   for(i in 1:length(plotags)){
-    lres[[i]] <- get_outcome(plotags[i], rrows[i], program, i, grad)
+    lres[[i]] <- get_outcome(plotags[i], rrows[i], program, i,
+                             grad, orientations[i], types[i],
+                             NA, NA, goals[i])
   }
   lres
 }
 
-merge_outcomes <- function(lres, program){
-  # Wrapper function to merge with the historical assessment results
-  #lres <- lres[!is.na(lres)] # Missing assessment returns NA
-  x <- bind_rows(lres)
-  x <- x %>% ungroup() %>%
-    transmute(`Learning Objective Number` = PLO,
-              `Academic Year` = rep(2019, nrow(x)),
-              `Outcome` = Met, `Sample Size` = n, `Outcome Goal` = list.goals[[program]])
-  
-  y <- past %>%
-    filter(Program == program, `Assessment Type Orientation` == "Internal") %>% 
-    select(`Learning Objective Number`, `Academic Year`,
-           Outcome, `Sample Size`, `Outcome Goal`)
-  out <- bind_rows(x, y)
-  out %>% arrange(`Learning Objective Number`, `Academic Year`)
+bind_outcomes <- function(lres){
+  bind_rows(lres) %>% ungroup() %>%
+    transmute(Program, `Goal Number` = PG,
+           `Learning Objective Number` = PLO,
+           `Assessment Type Orientation` = Orientation,
+           `Assessment Type` = Type, `Academic Year` = AY,
+           `Sample Size` = n, Outcome = Met,
+           `Outcome Unit` = Unit, `Outcome Goal` = Goal, Rubric = Rubric)
 }
 
-getmerge_outcomes <- function(program, grad = FALSE){
+getbind_outcomes <- function(program, grad = FALSE){
   lres <- get_outcomes(program, grad)
-  merge_outcomes(lres, program)
+  bind_outcomes(lres)
 }
-
-#getmerge_outcomes("Accounting")
-#past %>% filter(Program == "MBA", str_detect(`Assessment Type`, "(Internal$)|(Internal Formative)"))
+#get_outcomes("Accounting")
+#get_outcomes("Business Core")
+#get_outcomes("Economics")
+#getbind_outcomes("Economics")
 ```
 
+Now that all the functions are prepared, extract rows from `tbl4` and merge them
+together. The end result is a collection of AY2019 outcomes. Furthermore, merge the 2019 results into the exisiting results (`past`).
 ```{r}
-make_graph <- function(df.out, program){
-  title <- paste0(program, ", Prevalence of Achievments Over Academic Years, by PLO")
-  caption <- "Grey number represents sample size.\nFor 2019, minimum sample size is used if prevalence is computed from multiple criteria."
-  ymin <- min(min(acc$Outcome, na.rm = TRUE),
-              min(acc$`Outcome Goal` - 0.1, na.rm = TRUE))
-  
-  p <- ggplot(df.out, aes(x = `Academic Year`, y = Outcome,
-                          group = `Learning Objective Number`)) +
+out2019 <- getbind_outcomes("Accounting") %>%
+  bind_rows(getbind_outcomes("Business Core")) %>% 
+  bind_rows(getbind_outcomes("Economics")) %>% 
+#  bind_rows(getbind_outcomes("Finance")) %>% 
+  bind_rows(getbind_outcomes("Human Resources Management")) %>% 
+  bind_rows(getbind_outcomes("Management")) %>% 
+#  bind_rows(getbind_outcomes("Marketing")) %>% 
+  bind_rows(getbind_outcomes("MBA")) %>% 
+  bind_rows(past)
+```
+
+Export the data.
+```{r}
+write_csv(out2019, "export/outcome2019.csv")
+```
+
+Visualize
+--------------------------------------------------------------------------------
+Now that all the outcomes are in one place. I can simply filter relevant results and visualize them. First, define a wrapper function to standardize the format:
+```{r}
+draw_graph <- function(x, program, note = ""){
+  # Wrapper function to draw trends in outcomes.
+  title <- paste0(program,
+                  ", Prevalence of Achievments Over Academic Years, by PLO")
+  caption <- "Grey number represents sample size."
+  caption <- paste0(caption, "\n", note)
+  ymin <- min(x$Outcome - 0.1, x$`Outcome Goal` - 0.1, na.rm = TRUE)
+  p <- ggplot(x, aes(`Academic Year`, Outcome)) +
     geom_line(na.rm = TRUE) +
     geom_point(aes(color = Outcome > `Outcome Goal`), na.rm = TRUE) +
-    scale_colour_manual(values = setNames(c('blue','red'),c(T, F))) +
-    geom_text(aes(`Academic Year`, 0.65, label = round(`Sample Size`, 0)),
+    scale_colour_manual(values = setNames(c('black','red'),c(T, F))) +
+    geom_text(aes(`Academic Year`, ymin + 0.05, label = round(`Sample Size`, 0)),
               alpha = 0.4, na.rm = TRUE) +
-    geom_hline(aes(yintercept = `Outcome Goal`), alpha = 0.4, color = "red") +
-    scale_y_continuous(labels=scales::percent,
-                       breaks = seq(0, 1, 0.2), limits = c(ymin, NA))
+    geom_hline(aes(yintercept = `Outcome Goal`),
+               alpha = 0.4, color = "red", na.rm = TRUE) +
+    scale_y_continuous(labels=scales::percent, limits = c(ymin, 1))
   p + facet_wrap(vars(`Learning Objective Number`)) +
-    theme_minimal() +
     labs(title = title, caption = caption) +
     theme(axis.title = element_blank(),
           text = element_text(family = "serif"),
@@ -219,27 +294,166 @@ make_graph <- function(df.out, program){
 }
 ```
 
+Then, retrieve the relevant parts of the table from `out2019` by specifying program and assessment types. Except for MBA, programs only have one type (summative/formative) per PLO. So, no need to specify them.
+```{r}
+lres <- list()
+for(prog in c("Accounting", "Business Core", "Economics", 
+              "Human Resources Management", "Management")){
+  lres[[prog]] <- out2019 %>%
+    filter(Program == prog, `Assessment Type Orientation` == "Internal")
+}
+lres[["MBA"]] <- out2019 %>%
+  filter(Program == "MBA",
+         `Assessment Type Orientation` == "Internal",
+         `Assessment Type` == "Formative")
+```
 
-Outcomes
+Make graphs.
+```{r}
+lplt <- list()
+for(prog in c("Accounting", "Business Core", "Economics", 
+              "Human Resources Management", "Management")){
+  p <- draw_graph(lres[[prog]], prog)
+  ggsave(p, file = paste0("fig/", prog, ".png"))
+  lplt[[prog]] <- p
+}
+
+```
+
+Print out the graphs for inspection. Usually no need to include in notes.
+```{r, eval = FALSE}
+sapply(lplt, print)
+```
+
+
+Some additional notes:
+- ACC 318 001 (PLO 3) was taught by Rogan Howard in Spring 2020. See if exam data can be retrieved?
+- ACC 441 GW1 (PLO 4) was taught by Christopher Lyons in Fall 2019. At least, Josh has the data from his section.
+- MKT 741 (PLO 5) hasn't been offered for 2 years (?), so expected to have missing data.
+
+
+Follow Up
+--------------------------------------------------------------------------------
+I'm waiting for Finance (from Chris) and Marketing (from Rich). Courses for MIS (MIS 401 or MGT 373) were not offered, but I need to double check that.
+
+I have checked errors from missing data, but that's about it. I should check other aspects like the number of sessions, instructors, etc.
+
+Email sent to committee:
+
+Here’s the current status and recent development:
+
+- Accounting: All clear except PLO 3, whose course was taught by Rogan Howard (ACC 318 001 Spring). I don’t remember what we agreed to do about this. Retrieve exam data if possible?
+- Business Core: All clear. I’m double-checking each for missing data.
+- Economics: All clear. Paul will need to make the mapping more explicit, but that’ll be a task for the next round.
+- Finance program: Chris told me that he actually didn’t use rubrics for FIN 302. I asked him to assess outcomes from the records and his memory.
+- Human Resources Management: All clear.
+- Management: All clear.
+- Marketing: Rich is figuring out what we can do with the available data.
+- MIS: The course (MIS 401 or MGT 373) was not offered this term, was it? I’m leaving AY2019 empty.
+
+…Well, this list makes things much clearer. Why didn’t I do this earlier? :b
+
+
+
+Investigate
 ================================================================================
-Accounting
+
+Validate Data
 --------------------------------------------------------------------------------
 
+### Accounting
+Accounting program has all reported in non-rubric. In a sense, it's rather robust. I don't see any issues.
 ```{r}
-acc <- getmerge_outcomes("Accounting")
-knitr::kable(acc %>% filter(`Academic Year` == 2019), dig=2)
-```
-```{r}
-make_graph(acc, "Accounting")
+tbl3 %>% filter(str_detect(Course, "ACC (331|318|441)"))
 ```
 
-Business Core
---------------------------------------------------------------------------------
+### Business Core
+Business core uses BUS 499 intensively. Courses are taught by two instructors over the semesters, both in-person and online.
+```{r}
+x <- mdf %>% filter(Course == "BUS 499") %>% group_by(Semester, Section) %>%
+  summarise(n = n_distinct(UserId))
+x
+```
+
+In the previous note, missing observations are found in one of the sections. Following shows the data *after cleaning* of such missing observations in Annotated Bibliography for GW1 Spring 2020. For each section, the numbers of unique ID (i.e. count of students) for each `Assessment` are reported: since such numbers can be counted for each rubric row, any disagreements can be seen by comparing min/max of such counts. It is evident that there are some minor issues remaining in "Company Profile" of Fall 002 and Ethics Case of Fall GW1. These shall be addressed in revision, where individual results are collected.
+
+Moreover, there are a few assignments that are not taken or graded by several students (disagreements across rows). Fall 001 has 13 students in Ethics Case, while Annotated Bibliography has only 7 students.
+```{r} 
+sections <- x$Section
+semesters <- x$Semester
+for(i in 1:nrow(x)){
+  semester <- semesters[i]
+  mdf %>% filter(Section == sections[i], Semester == semesters[i]) %>%
+    group_by(Assessment, Name) %>% summarise(n = n()) %>% 
+    group_by(Assessment) %>% summarise(min_n = min(n), max_n = max(n)) %>%
+    mutate(ID = paste(semesters[i], sections[i])) %>% 
+    print(knitr::kable())
+}
+```
+```{r}
+mdf %>% filter(Course == "BUS 499") %>% group_by(Instructor, Semester, Section) %>% summarise(n_distinct(UserId))
+```
+
+### Economics
+Economics did not have one of the assessed course ECO 301. Non-rubric assessment was done in ECO 302. And, ECO 421 suffered from missing observations.
+```{r}
+tbl3 %>% filter(str_detect(Course, "ECO (301|302|421)"))
+```
+
+### Finance
+Waiting for Chris.
+
+### Human Resources Management
+Human Resources Management also suffered from missing observations, severely. All the observations are replaced with scraped data.
+```{r}
+tbl3 %>% filter(Course == "HRM 400")
+```
+
+### Management
+Management assessments are all done in BUS 345. There are quite a number of observations, but that's due to the number of rubric rows. Class sizes are small to moderate.
+```{r}
+x <- mdf %>% filter(Course == "BUS 345") %>% group_by(Semester, Section) %>%
+  summarise(n = n_distinct(UserId))
+x
+```
+
+There are a few assignments/section that suffered from the missing observations, although magnitudes are smaller than BUS 499 case.
+```{r}
+sections <- x$Section
+semesters <- x$Semester
+for(i in 1:nrow(x)){
+  semester <- semesters[i]
+  mdf %>% filter(Section == sections[i], Semester == semesters[i]) %>%
+    group_by(Assessment, Name) %>% summarise(n = n()) %>% 
+    group_by(Assessment) %>% summarise(min_n = min(n), max_n = max(n)) %>%
+    mutate(ID = paste(semesters[i], sections[i])) %>% 
+    print(knitr::kable())
+}
+```
+
+Missing students across assignments (comparing vertically) are severe? No, that's due to a typo in section ID. It needs to be fixed now (Beth - BUS 345 GWI > GW1)...Done.
+
+Also, the row count of "Ethics Reflection" is too high? In the survey, there are two entries: 
+
+- https://calu.desire2learn.com/d2l/lp/rubrics/stats_selectAssociation.d2l?rubricId=111900&ou=2668874
+- https://calu.desire2learn.com/d2l/lp/rubrics/stats_selectAssociation.d2l?rubricId=123358&ou=2775552
+
+Both are claimed to be for Fall 2019, BUS 345 GW1, Ethics Reflection. ~~Need to check with her.~~ I can identify the course from `ou` part: It's for Spring 2020 GW1. Fix it... Done.
+
+Now the numbers make a little more sense.
+
+Still, the number of students fall short in GW1 Fall and Spring both "vertically" and "horizontally". Need to check the course.
 
 ```{r}
-bus <- getmerge_outcomes("Business Core")
-knitr::kable(bus %>% filter(`Academic Year` == 2019), dig=2)
+mdf %>% filter(Course == "BUS 345") %>% group_by(Instructor, Semester, Section) %>% summarise(n_distinct(UserId))
 ```
-```{r}
-make_graph(bus, "Business Core")
-```
+
+### Marketing
+Waiting for Rich.
+
+### MIS
+Not offered? Double check.
+
+
+Next
+================================================================================

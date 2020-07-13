@@ -9,7 +9,10 @@ report/*
 
 data/*
 !data/README.md
+export/*
+!export/README.md
 
 *html
 *knit.md
 *utf8.md
+*png
