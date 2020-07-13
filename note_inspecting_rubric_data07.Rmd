@@ -174,7 +174,8 @@ in mapping keys.
 
 ```{r}
 get_outcome <- function(plotag, rrow, program, plo, 
-                        grad = FALSE, ori = NA, type = NA){
+                        grad = FALSE, ori = NA, type = NA,
+                        target = NA, unit = NA, goal = NA){
   # Extract assessment by PLO Tags and Rubric Row (pattern matching)
   if(is.na(rrow)){
     return(
@@ -190,7 +191,7 @@ get_outcome <- function(plotag, rrow, program, plo,
   out <- x %>% group_by(Rubric) %>% 
       summarize(Met.GRD = mean(Met.GRD), Met.UND = mean(Met.UND), n = min(n)) %>%
       mutate(Program = program, PLO = plo, Orientation = ori, Type = type,
-             AY = 2019, Target = NA, Unit = "Prevalence", Goal = NA)
+             AY = 2019, Target = target, Unit = "Prevalence", Goal = goal)
   if(grad){
     out %>% mutate(Met = Met.GRD) %>% select(-starts_with("Met."))
   }
@@ -214,9 +215,11 @@ get_outcomes <- function(program, grad = FALSE){
   rrows <- keys$Rubric.Rows
   orientations <- keys$Orientation
   types <- keys$Type
+  goals <- keys$Goals
   for(i in 1:length(plotags)){
     lres[[i]] <- get_outcome(plotags[i], rrows[i], program, i,
-                             grad, orientations[i], types[i])
+                             grad, orientations[i], types[i],
+                             NA, NA, goals[i])
   }
   lres
 }
@@ -264,17 +267,28 @@ Visualize
 --------------------------------------------------------------------------------
 Now that all the outcomes are in one place. I can simply filter relevant results and visualize them. First, define a wrapper function to standardize the format:
 ```{r}
-draw_graph <- function(x){
+draw_graph <- function(x, program, note = ""){
   # Wrapper function to draw trends in outcomes.
+  title <- paste0(program,
+                  ", Prevalence of Achievments Over Academic Years, by PLO")
+  caption <- "Grey number represents sample size."
+  caption <- paste0(caption, "\n", note)
   ymin <- min(x$Outcome - 0.1, x$`Outcome Goal` - 0.1, na.rm = TRUE)
   p <- ggplot(x, aes(`Academic Year`, Outcome)) +
-    geom_point(na.rm = TRUE)  + geom_line(na.rm = TRUE) +
+    geom_line(na.rm = TRUE) +
+    geom_point(aes(color = Outcome > `Outcome Goal`), na.rm = TRUE) +
+    scale_colour_manual(values = setNames(c('black','red'),c(T, F))) +
     geom_text(aes(`Academic Year`, ymin + 0.05, label = round(`Sample Size`, 0)),
               alpha = 0.4, na.rm = TRUE) +
     geom_hline(aes(yintercept = `Outcome Goal`),
                alpha = 0.4, color = "red", na.rm = TRUE) +
     scale_y_continuous(labels=scales::percent, limits = c(ymin, 1))
-  p + facet_wrap(vars(`Learning Objective Number`))
+  p + facet_wrap(vars(`Learning Objective Number`)) +
+    labs(title = title, caption = caption) +
+    theme(axis.title = element_blank(),
+          text = element_text(family = "serif"),
+          panel.grid.minor.x = element_blank(),
+          legend.position = "none")
 }
 ```
 
@@ -297,7 +311,7 @@ Make graphs.
 lplt <- list()
 for(prog in c("Accounting", "Business Core", "Economics", 
               "Human Resources Management", "Management")){
-  p <- draw_graph(lres[[prog]])
+  p <- draw_graph(lres[[prog]], prog)
   ggsave(p, file = paste0("fig/", prog, ".png"))
   lplt[[prog]] <- p
 }
