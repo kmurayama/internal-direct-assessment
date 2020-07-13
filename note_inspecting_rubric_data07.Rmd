@@ -253,8 +253,6 @@ out2019 <- getbind_outcomes("Accounting") %>%
 #  bind_rows(getbind_outcomes("Marketing")) %>% 
   bind_rows(getbind_outcomes("MBA")) %>% 
   bind_rows(past)
-
-names(out2019)
 ```
 
 Export the data.
@@ -264,8 +262,7 @@ write_csv(out2019, "export/outcome2019.csv")
 
 Visualize
 --------------------------------------------------------------------------------
-Now that all the outcomes are in one place. I can simply filter relevant results and visualize them.
-
+Now that all the outcomes are in one place. I can simply filter relevant results and visualize them. First, define a wrapper function to standardize the format:
 ```{r}
 draw_graph <- function(x){
   # Wrapper function to draw trends in outcomes.
@@ -281,56 +278,38 @@ draw_graph <- function(x){
 }
 ```
 
-
+Then, retrieve the relevant parts of the table from `out2019` by specifying program and assessment types. Except for MBA, programs only have one type (summative/formative) per PLO. So, no need to specify them.
 ```{r}
-x <- out2019 %>%
-  filter(Program == "Accounting", `Assessment Type Orientation` == "Internal",
-         `Assessment Type` == "Summative")
-draw_graph(x)
-```
-```{r}
-x <- out2019 %>%
-  filter(Program == "Business Core", `Assessment Type Orientation` == "Internal",
-         `Assessment Type` == "Summative")
-draw_graph(x)
-```
-```{r}
-x <- out2019 %>%
-  filter(Program == "Economics", `Assessment Type Orientation` == "Internal")
-draw_graph(x)
-```
-
-```{r}
-x <- out2019 %>%
-  filter(Program == "Human Resources Management",
-         `Assessment Type Orientation` == "Internal")
-
-draw_graph(x)
-```
-
-
-```{r}
-x <- out2019 %>%
-  filter(Program == "Management",
-         `Assessment Type Orientation` == "Internal")
-
-draw_graph(x)
-```
-
-```{r}
-x <- out2019 %>%
+lres <- list()
+for(prog in c("Accounting", "Business Core", "Economics", 
+              "Human Resources Management", "Management")){
+  lres[[prog]] <- out2019 %>%
+    filter(Program == prog, `Assessment Type Orientation` == "Internal")
+}
+lres[["MBA"]] <- out2019 %>%
   filter(Program == "MBA",
          `Assessment Type Orientation` == "Internal",
          `Assessment Type` == "Formative")
-
-draw_graph(x)
 ```
+
+Some additional notes:
+- ACC 318 001 (PLO 3) was taught by Rogan Howard in Spring 2020. See if exam data can be retrieved?
+- ACC 441 GW1 (PLO 4) was taught by Christopher Lyons in Fall 2019. At least, Josh has the data from his section.
+- MKT 741 (PLO 5) hasn't been offered for 2 years (?), so expected to have missing data.
+
 
 Follow Up
 --------------------------------------------------------------------------------
 I'm waiting for Finance (from Chris) and Marketing (from Rich). Courses for MIS (MIS 401 or MGT 373) were not offered, but I need to double check that.
 
 I have checked errors from missing data, but that's about it. I should check other aspects like the number of sessions, instructors, etc.
+
+
+Investigate
+================================================================================
+Initial Look
+--------------------------------------------------------------------------------
+Accounting 
 
 
 Next
