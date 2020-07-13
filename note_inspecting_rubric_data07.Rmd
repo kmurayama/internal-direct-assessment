@@ -180,7 +180,8 @@ get_outcome <- function(plotag, rrow, program, plo,
   if(is.na(rrow)){
     return(
       tibble(Rubric = NA, n = NA,
-             Program = program, PLO = plo, Orientation = ori, Type = type,
+             Program = program, PG = NA, PLO = plo,
+             Orientation = ori, Type = type,
              AY = 2019, Target = FALSE, Unit = "Prevalence", Goal = NA,
              Met = NA))}
   x <- tbl4 %>% filter(PLO == plotag, str_detect(Name, rrow))
@@ -190,7 +191,8 @@ get_outcome <- function(plotag, rrow, program, plo,
     }
   out <- x %>% group_by(Rubric) %>% 
       summarize(Met.GRD = mean(Met.GRD), Met.UND = mean(Met.UND), n = min(n)) %>%
-      mutate(Program = program, PLO = plo, Orientation = ori, Type = type,
+      mutate(Program = program, PG = NA, PLO = plo,
+             Orientation = ori, Type = type,
              AY = 2019, Target = target, Unit = "Prevalence", Goal = goal)
   if(grad){
     out %>% mutate(Met = Met.GRD) %>% select(-starts_with("Met."))
@@ -226,7 +228,7 @@ get_outcomes <- function(program, grad = FALSE){
 
 bind_outcomes <- function(lres){
   bind_rows(lres) %>% ungroup() %>%
-    transmute(Program = Program, `Goal Number` = Goal,
+    transmute(Program, `Goal Number` = PG,
            `Learning Objective Number` = PLO,
            `Assessment Type Orientation` = Orientation,
            `Assessment Type` = Type, `Academic Year` = AY,
@@ -355,9 +357,102 @@ Here’s the current status and recent development:
 
 Investigate
 ================================================================================
-Initial Look
+
+Validate Data
 --------------------------------------------------------------------------------
-Accounting 
+
+### Accounting
+Accounting program has all reported in non-rubric. In a sense, it's rather robust. I don't see any issues.
+```{r}
+tbl3 %>% filter(str_detect(Course, "ACC (331|318|441)"))
+```
+
+### Business Core
+Business core uses BUS 499 intensively. Courses are taught by two instructors over the semesters, both in-person and online.
+```{r}
+x <- mdf %>% filter(Course == "BUS 499") %>% group_by(Semester, Section) %>%
+  summarise(n = n_distinct(UserId))
+x
+```
+
+In the previous note, missing observations are found in one of the sections. Following shows the data *after cleaning* of such missing observations in Annotated Bibliography for GW1 Spring 2020. For each section, the numbers of unique ID (i.e. count of students) for each `Assessment` are reported: since such numbers can be counted for each rubric row, any disagreements can be seen by comparing min/max of such counts. It is evident that there are some minor issues remaining in "Company Profile" of Fall 002 and Ethics Case of Fall GW1. These shall be addressed in revision, where individual results are collected.
+
+Moreover, there are a few assignments that are not taken or graded by several students (disagreements across rows). Fall 001 has 13 students in Ethics Case, while Annotated Bibliography has only 7 students.
+```{r} 
+sections <- x$Section
+semesters <- x$Semester
+for(i in 1:nrow(x)){
+  semester <- semesters[i]
+  mdf %>% filter(Section == sections[i], Semester == semesters[i]) %>%
+    group_by(Assessment, Name) %>% summarise(n = n()) %>% 
+    group_by(Assessment) %>% summarise(min_n = min(n), max_n = max(n)) %>%
+    mutate(ID = paste(semesters[i], sections[i])) %>% 
+    print(knitr::kable())
+}
+```
+```{r}
+mdf %>% filter(Course == "BUS 499") %>% group_by(Instructor, Semester, Section) %>% summarise(n_distinct(UserId))
+```
+
+### Economics
+Economics did not have one of the assessed course ECO 301. Non-rubric assessment was done in ECO 302. And, ECO 421 suffered from missing observations.
+```{r}
+tbl3 %>% filter(str_detect(Course, "ECO (301|302|421)"))
+```
+
+### Finance
+Waiting for Chris.
+
+### Human Resources Management
+Human Resources Management also suffered from missing observations, severely. All the observations are replaced with scraped data.
+```{r}
+tbl3 %>% filter(Course == "HRM 400")
+```
+
+### Management
+Management assessments are all done in BUS 345. There are quite a number of observations, but that's due to the number of rubric rows. Class sizes are small to moderate.
+```{r}
+x <- mdf %>% filter(Course == "BUS 345") %>% group_by(Semester, Section) %>%
+  summarise(n = n_distinct(UserId))
+x
+```
+
+There are a few assignments/section that suffered from the missing observations, although magnitudes are smaller than BUS 499 case.
+```{r}
+sections <- x$Section
+semesters <- x$Semester
+for(i in 1:nrow(x)){
+  semester <- semesters[i]
+  mdf %>% filter(Section == sections[i], Semester == semesters[i]) %>%
+    group_by(Assessment, Name) %>% summarise(n = n()) %>% 
+    group_by(Assessment) %>% summarise(min_n = min(n), max_n = max(n)) %>%
+    mutate(ID = paste(semesters[i], sections[i])) %>% 
+    print(knitr::kable())
+}
+```
+
+Missing students across assignments (comparing vertically) are severe? No, that's due to a typo in section ID. It needs to be fixed now (Beth - BUS 345 GWI > GW1)...Done.
+
+Also, the row count of "Ethics Reflection" is too high? In the survey, there are two entries: 
+
+- https://calu.desire2learn.com/d2l/lp/rubrics/stats_selectAssociation.d2l?rubricId=111900&ou=2668874
+- https://calu.desire2learn.com/d2l/lp/rubrics/stats_selectAssociation.d2l?rubricId=123358&ou=2775552
+
+Both are claimed to be for Fall 2019, BUS 345 GW1, Ethics Reflection. ~~Need to check with her.~~ I can identify the course from `ou` part: It's for Spring 2020 GW1. Fix it... Done.
+
+Now the numbers make a little more sense.
+
+Still, the number of students fall short in GW1 Fall and Spring both "vertically" and "horizontally". Need to check the course.
+
+```{r}
+mdf %>% filter(Course == "BUS 345") %>% group_by(Instructor, Semester, Section) %>% summarise(n_distinct(UserId))
+```
+
+### Marketing
+Waiting for Rich.
+
+### MIS
+Not offered? Double check.
 
 
 Next
