@@ -326,5 +326,12 @@ x <- out2019 %>%
 draw_graph(x)
 ```
 
+Follow Up
+--------------------------------------------------------------------------------
+I'm waiting for Finance (from Chris) and Marketing (from Rich). Courses for MIS (MIS 401 or MGT 373) were not offered, but I need to double check that.
+
+I have checked errors from missing data, but that's about it. I should check other aspects like the number of sessions, instructors, etc.
+
+
 Next
 ================================================================================
