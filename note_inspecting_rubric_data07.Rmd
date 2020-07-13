@@ -262,6 +262,69 @@ Export the data.
 write_csv(out2019, "export/outcome2019.csv")
 ```
 
+Visualize
+--------------------------------------------------------------------------------
+Now that all the outcomes are in one place. I can simply filter relevant results and visualize them.
+
+```{r}
+draw_graph <- function(x){
+  # Wrapper function to draw trends in outcomes.
+  ymin <- min(x$Outcome - 0.1, x$`Outcome Goal` - 0.1, na.rm = TRUE)
+  p <- ggplot(x, aes(`Academic Year`, Outcome)) +
+    geom_point(na.rm = TRUE)  + geom_line(na.rm = TRUE) +
+    geom_text(aes(`Academic Year`, ymin + 0.05, label = round(`Sample Size`, 0)),
+              alpha = 0.4, na.rm = TRUE) +
+    geom_hline(aes(yintercept = `Outcome Goal`),
+               alpha = 0.4, color = "red", na.rm = TRUE) +
+    scale_y_continuous(labels=scales::percent, limits = c(ymin, 1))
+  p + facet_wrap(vars(`Learning Objective Number`))
+}
+```
+
+
+```{r}
+x <- out2019 %>%
+  filter(Program == "Accounting", `Assessment Type Orientation` == "Internal",
+         `Assessment Type` == "Summative")
+draw_graph(x)
+```
+```{r}
+x <- out2019 %>%
+  filter(Program == "Business Core", `Assessment Type Orientation` == "Internal",
+         `Assessment Type` == "Summative")
+draw_graph(x)
+```
+```{r}
+x <- out2019 %>%
+  filter(Program == "Economics", `Assessment Type Orientation` == "Internal")
+draw_graph(x)
+```
+
+```{r}
+x <- out2019 %>%
+  filter(Program == "Human Resources Management",
+         `Assessment Type Orientation` == "Internal")
+
+draw_graph(x)
+```
+
+
+```{r}
+x <- out2019 %>%
+  filter(Program == "Management",
+         `Assessment Type Orientation` == "Internal")
+
+draw_graph(x)
+```
+
+```{r}
+x <- out2019 %>%
+  filter(Program == "MBA",
+         `Assessment Type Orientation` == "Internal",
+         `Assessment Type` == "Formative")
+
+draw_graph(x)
+```
 
 Next
 ================================================================================
