@@ -115,15 +115,31 @@ names and typos have been handled, resulting in `mdf` data frame. Meanwhile, the
 survey also contains the information about non-rubric assessments. They are
 cleaned and separated into `non` data frame.
 
-The individual data are necessary for analyzing the grade distributions and possible correlations in various grades. However, Standard 4 only requires the aggregates.  Therefore, I will summarize the outcomes at the aggregation level of course and rubric row.
+The individual data are necessary for analyzing the grade distributions and
+possible correlations in various grades. However, Standard 4 only requires the
+aggregates.  Therefore, I will summarize the outcomes at the aggregation level
+of course and rubric row.
 
-First, the individual-level data are aggregated to `Course`-`Section`-`Semester`-`Assessment`-`Name`(Rubric Row) level ("Section & Rubric Row" level). At this stage, each implementation is distinguishable. Instructor level analysis can be done. In the aggregation, proportions of students who met the goal are calculated.
+First, the individual-level data are aggregated to
+`Course`-`Section`-`Semester`-`Assessment`-`Name`(Rubric Row) level ("Section &
+Rubric Row" level). At this stage, each implementation is distinguishable.
+Instructor level analysis can be done. In the aggregation, proportions of
+students who met the goal are calculated.
 
-Second, the Section & Rubric Row level data above is combined with the rubric data *scraped from the D2L directly*. There are some missing in the retrieved D2L data. As a temporary measure, student outcomes are collected from D2L course pages manually. The results are summarized at the rubric row levels; hence compatible with the aggregated data mentioned above.
+Second, the Section & Rubric Row level data above is combined with the rubric
+data *scraped from the D2L directly*. There are some missing in the retrieved
+D2L data. As a temporary measure, student outcomes are collected from D2L course
+pages manually. The results are summarized at the rubric row levels; hence
+compatible with the aggregated data mentioned above.
 
-The non-rubric assessments mentioned before are merged at this stage. However, unlike the scraped data, those non-rubric assessments do not have rows. (All the rows are labeled "No Rubric".) If both rubric and non-rubric assessments exist, they need to be distinguished (Use `Rubric` flag).
+The non-rubric assessments mentioned before are merged at this stage. However,
+unlike the scraped data, those non-rubric assessments do not have rows. (All the
+rows are labeled "No Rubric".) If both rubric and non-rubric assessments exist,
+they need to be distinguished (Use `Rubric` flag).
 
-Third, the data are aggregated to the course level, erasing the distinction between sections. This level is used for student outcome assessment. The resulting data is distinguished at `Course`-`Assessment`-`Name`(Rubric Row).
+Third, the data are aggregated to the course level, erasing the distinction
+between sections. This level is used for student outcome assessment. The
+resulting data is distinguished at `Course`-`Assessment`-`Name`(Rubric Row).
 
 ```{r}
 tbl1 <- mdf %>% filter(str_detect(Name, "Major|Minor", negate = TRUE)) %>%
@@ -131,24 +147,15 @@ tbl1 <- mdf %>% filter(str_detect(Name, "Major|Minor", negate = TRUE)) %>%
   summarise(Met.UND = mean(Met.UND.bin), Met.GRD = mean(Met.GRD.bin),
             n = n_distinct(UserId),
             Rubric = TRUE)
-```
-```{r}
 miss <- read_excel("data/D2L Missing Data Retrievals.xlsx", "Scraped")
 miss <- miss %>%
   select(-c(Unsatisfactory:Advanced)) %>% mutate(Met.UND = Met, Met.GRD = Met)
 tbl2 <- bind_rows(tbl1, miss)
-#tbl2 %>% filter(Course == "BUS 499", Assessment == "Annotated Bibliography")
-```
-```{r}
 tbl3 <- tbl2 %>%
   bind_rows(non %>% transmute(Course, Section, Semester, Assessment,
                               Name = "No Rubric", PLO,
                               Met.UND = np/n, Met.GRD = Met.UND, n,
                               Rubric = FALSE))
-```
-
-
-```{r}
 tbl4 <- tbl3 %>% 
   group_by(Course, Assessment, Name, PLO, Rubric) %>%
   summarise(Met.UND = weighted.mean(Met.UND, n, na.rm = TRUE),
@@ -156,11 +163,15 @@ tbl4 <- tbl3 %>%
             n = sum(n, na.rm = TRUE), n.sec = n_distinct(Section),
             Rubric = TRUE) %>% 
   ungroup()
-summary(tbl4)
 ```
 
-Prepare New
+Prepare
 --------------------------------------------------------------------------------
+All the `Course`-`Assessment`-`Name`(Rubric Row) level observations are
+summarized in `tbl4`. In order to get Program Learning Objective (PLO) level
+aggregation, they need to be aggregated following the specifications summarized
+in mapping keys.
+
 ```{r}
 get_outcome <- function(plotag, rrow, program, plo, 
                         grad = FALSE, ori = NA, type = NA){
@@ -190,12 +201,10 @@ get_outcome <- function(plotag, rrow, program, plo,
 #get_outcome(plotag = "ACC 1", rrow = "NA", program = "Accounting", plo = 1)
 #get_outcome(plotag = "ACC 1", rrow = "No Rubric", program = "Accounting", plo = 1)
 ```
-
 ```{r}
 keys.all <- read_csv("data/mapping_keys.csv", na = "NA")
 #knitr::kable(keys.all)
 ```
-
 ```{r}
 get_outcomes <- function(program, grad = FALSE){
   # Wrapper to return a combined results for each program
@@ -231,8 +240,10 @@ getbind_outcomes <- function(program, grad = FALSE){
 #get_outcomes("Economics")
 ```
 
+Now that all the functions are prepared, extract rows from `tbl4` and merge them
+together. The end result is a collection of AY2019 outcomes. Furthermore, merge the 2019 results into the exisiting results (`past`).
 ```{r}
-all <- getbind_outcomes("Accounting") %>%
+out2019 <- getbind_outcomes("Accounting") %>%
   bind_rows(getbind_outcomes("Business Core")) %>% 
   bind_rows(getbind_outcomes("Economics")) %>% 
 #  bind_rows(getbind_outcomes("Finance")) %>% 
@@ -242,7 +253,7 @@ all <- getbind_outcomes("Accounting") %>%
   bind_rows(getbind_outcomes("MBA")) %>% 
   bind_rows(past)
 
-summary(all)
+names(out2019)
 ```
 
 
