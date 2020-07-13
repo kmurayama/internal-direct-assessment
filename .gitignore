@@ -9,6 +9,8 @@ report/*
 
 data/*
 !data/README.md
+export/*
+!export/README.md
 
 *html
 *knit.md

@@ -180,7 +180,7 @@ get_outcome <- function(plotag, rrow, program, plo,
     return(
       tibble(Rubric = NA, n = NA,
              Program = program, PLO = plo, Orientation = ori, Type = type,
-             Ay = 2019, Target = NA, Unit = "Prevalence", Goal = NA,
+             AY = 2019, Target = FALSE, Unit = "Prevalence", Goal = NA,
              Met = NA))}
   x <- tbl4 %>% filter(PLO == plotag, str_detect(Name, rrow))
   if(nrow(x) == 0){
@@ -223,7 +223,7 @@ get_outcomes <- function(program, grad = FALSE){
 
 bind_outcomes <- function(lres){
   bind_rows(lres) %>% ungroup() %>%
-    rename(Program = Program, `Goal Number` = Goal,
+    transmute(Program = Program, `Goal Number` = Goal,
            `Learning Objective Number` = PLO,
            `Assessment Type Orientation` = Orientation,
            `Assessment Type` = Type, `Academic Year` = AY,
@@ -238,6 +238,7 @@ getbind_outcomes <- function(program, grad = FALSE){
 #get_outcomes("Accounting")
 #get_outcomes("Business Core")
 #get_outcomes("Economics")
+#getbind_outcomes("Economics")
 ```
 
 Now that all the functions are prepared, extract rows from `tbl4` and merge them
@@ -254,6 +255,11 @@ out2019 <- getbind_outcomes("Accounting") %>%
   bind_rows(past)
 
 names(out2019)
+```
+
+Export the data.
+```{r}
+write_csv(out2019, "export/outcome2019.csv")
 ```
 
 
