@@ -292,6 +292,24 @@ lres[["MBA"]] <- out2019 %>%
          `Assessment Type` == "Formative")
 ```
 
+Make graphs.
+```{r}
+lplt <- list()
+for(prog in c("Accounting", "Business Core", "Economics", 
+              "Human Resources Management", "Management")){
+  p <- draw_graph(lres[[prog]])
+  ggsave(p, file = paste0("fig/", prog, ".png"))
+  lplt[[prog]] <- p
+}
+
+```
+
+Print out the graphs for inspection. Usually no need to include in notes.
+```{r, eval = FALSE}
+sapply(lplt, print)
+```
+
+
 Some additional notes:
 - ACC 318 001 (PLO 3) was taught by Rogan Howard in Spring 2020. See if exam data can be retrieved?
 - ACC 441 GW1 (PLO 4) was taught by Christopher Lyons in Fall 2019. At least, Josh has the data from his section.
