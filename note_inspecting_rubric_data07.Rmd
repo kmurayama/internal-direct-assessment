@@ -449,7 +449,20 @@ mdf %>% filter(Course == "BUS 345") %>% group_by(Instructor, Semester, Section) 
 ```
 
 ### Marketing
-Waiting for Rich.
+Waiting for Rich. Eric Freeman taught this class and... rubrics are not identifiable.
+```{r}
+mdf %>% filter(Course == "MKT 401")
+```
+
+7/14 Had some conversations, having clarified some issues. Those rows with actual descriptions might be usable. Rich can assign them to PLOs. He'd like to include Ed in the discussion, then we can move on.
+
+There was some misunderstanding with Rich and between Rich and Eric Freeman, it seems. (e.g. Goal and PLOs are mixed up) Communication about assessments is a critical step we need to address. (See OneNote for some more details.)
+
+That said, we won't have much information out of the data because of the way this assignment was graded. Another thing to improve is how students are supposed to be assessed.
+```{r}
+tbl4 %>% filter(Course == "MKT 401")
+```
+
 
 ### MIS
 Not offered? Double check.
