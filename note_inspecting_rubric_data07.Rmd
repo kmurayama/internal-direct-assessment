@@ -455,32 +455,41 @@ Waiting for Rich.
 Not offered? Double check.
 
 ### MBA
-MBA is mostly "robust" to the missing observations because they are non-rubric/exam.
 ```{r}
 tbl4 %>% filter(str_detect(PLO, "MBA")) %>% knitr::kable(dig = 2)
 ```
 
-Exception is BUS 771.
+#### BUS 799 (PLO 7)
+
+```{r}
+non %>% filter(Course == "BUS 799")
+non %>% filter(Course == "Bus 799")
+```
+
+MBA 7. "Chapter Case Study" and "Comprehensive Project". When it's supposed to be exam scores.
+
+#### BUS 771 (PLO 8)
 ```{r}
 tbl3 %>% filter(Course == "BUS 771")
 ```
 
-Okay... some are rubric rows and others are not. Aggregation by weighted mean does not work. There is a check though, through group_by(Rubric). How come it went through undetected? Found it. It was overwritten at `tbl4` aggregation. Fix it...Done. Now the graph for MBA shows a glitch.
+Okay... some are rubric rows and others are not. Aggregation by weighted mean does not work. There is a check though, through group_by(Rubric). How come it went through undetected? Found it. It was overwritten at `tbl4` aggregation. Fix it...Done. Now the graph for MBA shows a glitch. Let's fix that.
 
-This "Exam" originally named Final Exam Score - Case Report 3 doesn't look like an exam, though?
-
-Also, GW1 Summer 2019 is counted twice because Final Exam and Final Exam Part 2 are reduced to Exam. Ask Ed for distinctions.
-
-
-MBA 7. "Chapter Case Study" and "Comprehensive Project". When it's supposed to be exam scores.
+In non-rubric entries, they look fine.
 ```{r}
-tbl3 %>% filter(Course == "BUS 799")
-tbl3 %>% filter(Course == "Bus 799")
+non %>% filter(Course == "BUS 771")
 ```
 
+In rubric entries, "Final Exam Score - Case Report 3" seems to have paper-like rubric?
 ```{r}
-tbl3 %>% filter(Course == "HRM 711")
+mdf %>% filter(Course == "BUS 771")
 ```
+
+So,
+
+- [x] Ask Ed about 799: What do we do about thsoe entries?
+- [x] Ask Ed about 771: Is this a correct label?
+
 
 Next
 ================================================================================
