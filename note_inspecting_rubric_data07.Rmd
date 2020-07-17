@@ -484,6 +484,7 @@ MBA 7. "Chapter Case Study" and "Comprehensive Project". When it's supposed to b
 #### BUS 771 (PLO 8)
 ```{r}
 tbl3 %>% filter(Course == "BUS 771")
+#(0.8*5+0.66*30+0.12*16)/(5+30+16)
 ```
 
 Okay... some are rubric rows and others are not. Aggregation by weighted mean does not work. There is a check though, through group_by(Rubric). How come it went through undetected? Found it. It was overwritten at `tbl4` aggregation. Fix it...Done. Now the graph for MBA shows a glitch. Let's fix that.
@@ -498,9 +499,12 @@ In rubric entries, "Final Exam Score - Case Report 3" seems to have paper-like r
 mdf %>% filter(Course == "BUS 771")
 ```
 
+For now I can ignore those. Use the key "No Rubric" to filter them...
+
+#### Follow up
 So,
 
-- [x] Ask Ed about 799: What do we do about thsoe entries?
+- [x] Ask Ed about 799: What do we do about those entries?
 - [x] Ask Ed about 771: Is this a correct label?
 
 Delta
@@ -544,6 +548,52 @@ req %>%
   filter(str_detect(Section,
                     paste(paste0("(", declined, ")"), collapse = "|")))
 ```
+
+Check Comments for Data Validation
+--------------------------------------------------------------------------------
+
+### Accounting
+```{r}
+non %>% filter(str_detect(Course, "ACC (331|318|441)")) %>%
+  transmute(Course, Analysis.Non.Rubric, Action.Non.Rubric, Met = np/n) %>%
+  knitr::kable(dig = 2)
+```
+
+### Business Core
+```{r}
+survey %>% filter(str_detect(Course, "BUS 499")) %>%
+  select(Course, PLO, Analysis.Rubric, Action.Rubric) %>%
+  knitr::kable(dig = 2)
+```
+
+### Economics
+```{r}
+survey %>% filter(str_detect(Course, "ECO (301|302|421)")) %>%
+  select(Course, PLO, Analysis.Rubric, Action.Rubric) %>%
+  knitr::kable(dig = 2)
+```
+
+```{r}
+non %>% filter(str_detect(Course, "ECO (301|302|421)")) %>%
+  select(Course, PLO, Analysis.Non.Rubric, Action.Non.Rubric) %>%
+  knitr::kable(dig = 2)
+```
+
+### Finance
+
+### Human Resources Management
+
+### Management
+
+### Marketing
+
+### MBA
+```{r}
+non %>% filter(Course == "BUS 771") %>%
+  transmute(Course, Analysis.Non.Rubric, Action.Non.Rubric, Met = np/n) %>%
+  knitr::kable(dig = 2)
+```
+
 
 Next
 ================================================================================
