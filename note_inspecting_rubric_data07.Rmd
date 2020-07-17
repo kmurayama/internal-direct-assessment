@@ -202,7 +202,7 @@ get_outcome <- function(plotag, rrow, program, plo,
   }
 }
 #get_outcome(plotag = "ACC 1", rrow = "NA", program = "Accounting", plo = 1)
-#get_outcome(plotag = "ACC 1", rrow = "No Rubric", program = "Accounting", plo = 1)
+#get_outcome(plotag = "FIN 1", rrow = "No Rubric", program = "Finance", plo = 1)
 ```
 ```{r}
 keys.all <- read_csv("data/mapping_keys.csv", na = "NA")
@@ -242,8 +242,8 @@ getbind_outcomes <- function(program, grad = FALSE){
 }
 #get_outcomes("Accounting")
 #get_outcomes("Business Core")
-#get_outcomes("Economics")
-#getbind_outcomes("Economics")
+#get_outcomes("Finance")
+#getbind_outcomes("Finance")
 ```
 
 Now that all the functions are prepared, extract rows from `tbl4` and merge them
@@ -252,7 +252,7 @@ together. The end result is a collection of AY2019 outcomes. Furthermore, merge 
 out2019 <- getbind_outcomes("Accounting") %>%
   bind_rows(getbind_outcomes("Business Core")) %>% 
   bind_rows(getbind_outcomes("Economics")) %>% 
-#  bind_rows(getbind_outcomes("Finance")) %>% 
+  bind_rows(getbind_outcomes("Finance")) %>% 
   bind_rows(getbind_outcomes("Human Resources Management")) %>% 
   bind_rows(getbind_outcomes("Management")) %>% 
 #  bind_rows(getbind_outcomes("Marketing")) %>% 
@@ -297,7 +297,7 @@ draw_graph <- function(x, program, note = ""){
 Then, retrieve the relevant parts of the table from `out2019` by specifying program and assessment types. Except for MBA, programs only have one type (summative/formative) per PLO. So, no need to specify them.
 ```{r}
 lres <- list()
-for(prog in c("Accounting", "Business Core", "Economics", 
+for(prog in c("Accounting", "Business Core", "Economics", "Finance", 
               "Human Resources Management", "Management")){
   lres[[prog]] <- out2019 %>%
     filter(Program == prog, `Assessment Type Orientation` == "Internal")
@@ -311,7 +311,7 @@ lres[["MBA"]] <- out2019 %>%
 Make graphs.
 ```{r}
 lplt <- list()
-for(prog in c("Accounting", "Business Core", "Economics", 
+for(prog in c("Accounting", "Business Core", "Economics", "Finance",
               "Human Resources Management", "Management", "MBA")){
   p <- draw_graph(lres[[prog]], prog)
   ggsave(p, file = paste0("fig/", prog, ".png"))
@@ -401,7 +401,11 @@ tbl3 %>% filter(str_detect(Course, "ECO (301|302|421)"))
 ```
 
 ### Finance
-Waiting for Chris.
+Waiting for Chris... Received.
+
+```{r}
+tbl3 %>% filter(str_detect(Course, "FIN 302"))
+```
 
 ### Human Resources Management
 Human Resources Management also suffered from missing observations, severely. All the observations are replaced with scraped data.
