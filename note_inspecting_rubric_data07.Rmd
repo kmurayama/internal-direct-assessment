@@ -342,10 +342,10 @@ Email sent to committee:
 
 Here’s the current status and recent development:
 
-- Accounting: All clear except PLO 3, whose course was taught by Rogan Howard (ACC 318 001 Spring). I don’t remember what we agreed to do about this. Retrieve exam data if possible?
-- Business Core: All clear. I’m double-checking each for missing data.
-- Economics: All clear. Paul will need to make the mapping more explicit, but that’ll be a task for the next round.
-- Finance program: Chris told me that he actually didn’t use rubrics for FIN 302. I asked him to assess outcomes from the records and his memory.
+- Accounting: All clear except PLO 3, whose course was taught by Rogan Howard (ACC 318 001 Spring). I don’t remember what we agreed to do about this. Retrieve exam data if possible? >> Ed: "I'll get into the ACC 318 course shell and see what we can do.  I'm having Freeman get MKT 741 for us.   BUS 799 was the other one if remember correctly..."
+- Business Core: All clear.
+- Economics: All clear. (Paul will need to make the mapping more explicit, but that’ll be a task for the next round.)
+- Finance program: All clear. (Chris told me that he actually didn’t use rubrics for FIN 302. I asked him to assess outcomes from the records and his memory.)
 - Human Resources Management: All clear.
 - Management: All clear.
 - Marketing: Rich is figuring out what we can do with the available data.
