@@ -361,6 +361,12 @@ Investigate
 Validate Data
 --------------------------------------------------------------------------------
 
+Mark rubric ids with missing observations for Jon Kallis.
+```{r}
+vmiss <- c()
+```
+
+
 ### Accounting
 Accounting program has all reported in non-rubric. In a sense, it's rather robust. I don't see any issues.
 ```{r}
@@ -370,7 +376,7 @@ tbl3 %>% filter(str_detect(Course, "ACC (331|318|441)"))
 ### Business Core
 Business core uses BUS 499 intensively. Courses are taught by two instructors over the semesters, both in-person and online.
 ```{r}
-x <- mdf %>% filter(Course == "BUS 499") %>% group_by(Semester, Section) %>%
+x <- mdf.original %>% filter(Course == "BUS 499") %>% group_by(Semester, Section) %>%
   summarise(n = n_distinct(UserId))
 x
 ```
@@ -383,21 +389,43 @@ sections <- x$Section
 semesters <- x$Semester
 for(i in 1:nrow(x)){
   semester <- semesters[i]
-  mdf %>% filter(Section == sections[i], Semester == semesters[i]) %>%
-    group_by(Assessment, Name) %>% summarise(n = n()) %>% 
-    group_by(Assessment) %>% summarise(min_n = min(n), max_n = max(n)) %>%
+  mdf.original %>% filter(Section == sections[i], Semester == semesters[i]) %>%
+    group_by(RubricId, Assessment, Name) %>% summarise(n = n()) %>% 
+    group_by(RubricId, Assessment) %>% summarise(min_n = min(n), max_n = max(n)) %>%
     mutate(ID = paste(semesters[i], sections[i])) %>% 
     print(knitr::kable())
 }
 ```
+
 ```{r}
-mdf %>% filter(Course == "BUS 499") %>% group_by(Instructor, Semester, Section) %>% summarise(n_distinct(UserId))
+vmiss <- c(vmiss, 119204, 111875, 124424)
 ```
+
 
 ### Economics
 Economics did not have one of the assessed course ECO 301. Non-rubric assessment was done in ECO 302. And, ECO 421 suffered from missing observations.
 ```{r}
 tbl3 %>% filter(str_detect(Course, "ECO (301|302|421)"))
+```
+
+```{r}
+x <- mdf.original %>% filter(Course == "ECO 421") %>%
+  group_by(Instructor, Semester, Section) %>% summarise(n_distinct(UserId))
+
+sections <- x$Section
+semesters <- x$Semester
+for(i in 1:nrow(x)){
+  semester <- semesters[i]
+  mdf.original %>% filter(Section == sections[i], Semester == semesters[i]) %>%
+    group_by(RubricId, Assessment, Name) %>% summarise(n = n()) %>% 
+    group_by(RubricId, Assessment) %>% summarise(min_n = min(n), max_n = max(n)) %>%
+    mutate(ID = paste(semesters[i], sections[i])) %>% 
+    print(knitr::kable())
+}
+```
+
+```{r}
+vmiss <- c(vmiss, 126078)
 ```
 
 ### Finance
@@ -413,10 +441,30 @@ Human Resources Management also suffered from missing observations, severely. Al
 tbl3 %>% filter(Course == "HRM 400")
 ```
 
+```{r}
+x <- mdf.original %>% filter(Course == "HRM 400") %>%
+  group_by(Instructor, Semester, Section) %>% summarise(n_distinct(UserId))
+
+sections <- x$Section
+semesters <- x$Semester
+for(i in 1:nrow(x)){
+  semester <- semesters[i]
+  mdf.original %>% filter(Section == sections[i], Semester == semesters[i]) %>%
+    group_by(RubricId, Assessment, Name) %>% summarise(n = n()) %>% 
+    group_by(RubricId, Assessment) %>% summarise(min_n = min(n), max_n = max(n)) %>%
+    mutate(ID = paste(semesters[i], sections[i])) %>% 
+    print(knitr::kable())
+}
+```
+
+```{r}
+vmiss <- c(vmiss, 135012, 137775, 137778)
+```
+
 ### Management
 Management assessments are all done in BUS 345. There are quite a number of observations, but that's due to the number of rubric rows. Class sizes are small to moderate.
 ```{r}
-x <- mdf %>% filter(Course == "BUS 345") %>% group_by(Semester, Section) %>%
+x <- mdf.original %>% filter(Course == "BUS 345") %>% group_by(Semester, Section) %>%
   summarise(n = n_distinct(UserId))
 x
 ```
@@ -427,12 +475,16 @@ sections <- x$Section
 semesters <- x$Semester
 for(i in 1:nrow(x)){
   semester <- semesters[i]
-  mdf %>% filter(Section == sections[i], Semester == semesters[i]) %>%
-    group_by(Assessment, Name) %>% summarise(n = n()) %>% 
-    group_by(Assessment) %>% summarise(min_n = min(n), max_n = max(n)) %>%
+  mdf.original %>% filter(Section == sections[i], Semester == semesters[i]) %>%
+    group_by(RubricId, Assessment, Name) %>% summarise(n = n()) %>% 
+    group_by(RubricId, Assessment) %>% summarise(min_n = min(n), max_n = max(n)) %>%
     mutate(ID = paste(semesters[i], sections[i])) %>% 
     print(knitr::kable())
 }
+```
+
+```{r}
+vmiss <- c(vmiss, 123356)
 ```
 
 Missing students across assignments (comparing vertically) are severe? No, that's due to a typo in section ID. It needs to be fixed now (Beth - BUS 345 GWI > GW1)...Done.
@@ -510,6 +562,14 @@ So,
 
 - [x] Ask Ed about 799: What do we do about those entries?
 - [x] Ask Ed about 771: Is this a correct label?
+- [x] Ask Jon about missing data >> Requested for rubric ids >> Sent
+
+```{r}
+for(i in length(vmiss)){
+  cat(paste0(vmiss, collapse = "\n"))
+}
+```
+
 
 
 Check Comments for Data Validation
