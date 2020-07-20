@@ -213,13 +213,14 @@ get_outcomes <- function(program, grad = FALSE){
   # Wrapper to return a combined results for each program
   keys <- keys.all %>% filter(Program == program)
   lres <- list()
+  plos <- keys$PLO
   plotags <- keys$PLO.Tags
   rrows <- keys$Rubric.Rows
   orientations <- keys$Orientation
   types <- keys$Type
   goals <- keys$Goals
   for(i in 1:length(plotags)){
-    lres[[i]] <- get_outcome(plotags[i], rrows[i], program, i,
+    lres[[i]] <- get_outcome(plotags[i], rrows[i], program, plos[i],
                              grad, orientations[i], types[i],
                              NA, NA, goals[i])
   }
