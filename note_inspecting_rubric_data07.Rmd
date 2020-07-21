@@ -543,7 +543,7 @@ req <- req %>%
                                                   "Summer" = "2019 Summer")),
             Section = paste(Department, Course, Section))
 
-requested <- levels(factor(req2$Section))
+requested <- levels(factor(req$Section))
 obtained <- levels(factor(tbl3$Section))
 
 declined <- requested[!obtained %in% requested]
