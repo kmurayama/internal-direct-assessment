@@ -312,7 +312,7 @@ Make graphs.
 ```{r}
 lplt <- list()
 for(prog in c("Accounting", "Business Core", "Economics", 
-              "Human Resources Management", "Management")){
+              "Human Resources Management", "Management", "MBA")){
   p <- draw_graph(lres[[prog]], prog)
   ggsave(p, file = paste0("fig/", prog, ".png"))
   lplt[[prog]] <- p
@@ -453,6 +453,50 @@ Waiting for Rich.
 
 ### MIS
 Not offered? Double check.
+
+
+
+Delta
+--------------------------------------------------------------------------------
+How far are we to achieve goals? Comparison with bar graphs is good, but taking the difference from the goal (*delta*) is better.
+
+```{r}
+dfres <- bind_rows(lres)
+x <- dfres %>% filter(`Academic Year` == 2019) %>% mutate(Diff = Outcome - `Outcome Goal`)
+p <- ggplot(x, aes(as.factor(`Learning Objective Number`), Diff)) +
+  geom_col(na.rm = TRUE) + scale_y_continuous(labels=scales::percent) +
+    geom_hline(yintercept = c(0.2, -0.2), alpha = 0.4, color = "red") +
+    geom_hline(yintercept = c(0), alpha = 0.8, color = "black")
+p <- p + facet_wrap(vars(Program), scales = "free_x") + 
+    labs(title = "Deviations from Goals, AY2019, by Program and PLO") +
+    theme(axis.title = element_blank(),
+          text = element_text(family = "serif"),
+          panel.grid.minor.x = element_blank(),
+          legend.position = "none")
+ggsave(p, file = paste0("fig/", "deltas2019", ".png"))
+```
+
+
+Declined Requests
+--------------------------------------------------------------------------------
+```{r}
+req <- read_excel("data/Assessment Survey Responses.xlsx", "Requests")
+req <- req %>% 
+  mutate(Semester = str_replace_all(Semester,c("Fall" = "2019 Fall",
+                                                  "Spring" = "2020 Spring",
+                                                  "Summer" = "2019 Summer")),
+            Section = paste(Department, Course, Section))
+
+requested <- levels(factor(req2$Section))
+obtained <- levels(factor(tbl3$Section))
+
+declined <- requested[!obtained %in% requested]
+```
+```{r}
+req %>%
+  filter(str_detect(Section,
+                    paste(paste0("(", declined, ")"), collapse = "|")))
+```
 
 
 Next
