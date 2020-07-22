@@ -1,5 +1,5 @@
 ---
-title: "Note to Inspect Rubric Data 7"
+title: "Note to Inspect Rubric Data 8"
 date: "`r format(Sys.time(), '%d %B, %Y')`"
 output:
   html_notebook:
@@ -26,12 +26,11 @@ library(readxl)
 
 Objective
 ================================================================================
-Data are mostly cleaned and organized; PLOs are largely matched for Standard 4
-reporting; yet, there are several critically missing pieces. 1) Present the
-outcomes for those which are present and 2) sort out the current situation and
-follow up with faculty/staff for missing information (i.e. missing data,
-assessments, and mappings).
+PLO assessments are mostly collected and validated. Add some analyses useful for
+Standards 4 & 6. Note 7 is still active. Be mindful of updates in data sets.
 
+Start with additional visuals from the past reports (delta) and ones requested
+by Beth (disaggregates).
 
 
 Set up
@@ -54,7 +53,6 @@ source('munge.R')
 Those scripts have been updated to use the *edited* version of the survey result
 data. See Note 5 for details. Given that change, the Notebooks 1-5 are
 completely outdated.
-
 
 New Issues
 --------------------------------------------------------------------------------
@@ -333,310 +331,112 @@ Some additional notes:
 - MKT 741 (PLO 5) hasn't been offered for 2 years (?), so expected to have missing data.
 
 
-Follow Up
---------------------------------------------------------------------------------
-I'm waiting for Finance (from Chris) and Marketing (from Rich). Courses for MIS (MIS 401 or MGT 373) were not offered, but I need to double check that.
 
-I have checked errors from missing data, but that's about it. I should check other aspects like the number of sessions, instructors, etc.
-
-Email sent to committee:
-
-Here’s the current status and recent development:
-
-- Accounting: All clear except PLO 3, whose course was taught by Rogan Howard (ACC 318 001 Spring). I don’t remember what we agreed to do about this. Retrieve exam data if possible? >> Ed: "I'll get into the ACC 318 course shell and see what we can do.  I'm having Freeman get MKT 741 for us.   BUS 799 was the other one if remember correctly..."
-- Business Core: All clear.
-- Economics: All clear. (Paul will need to make the mapping more explicit, but that’ll be a task for the next round.)
-- Finance program: All clear. (Chris told me that he actually didn’t use rubrics for FIN 302. I asked him to assess outcomes from the records and his memory.)
-- Human Resources Management: All clear.
-- Management: All clear.
-- Marketing: Rich is figuring out what we can do with the available data.
-- MIS: The course (MIS 401 or MGT 373) was not offered this term, was it? I’m leaving AY2019 empty.
-
-…Well, this list makes things much clearer. Why didn’t I do this earlier? :b
-
-
-
-Investigate
+Additional Visuals
 ================================================================================
 
-Validate Data
+Delta
 --------------------------------------------------------------------------------
+How far are we to achieve goals? Comparison with bar graphs is good, but taking
+the difference from the goal (*delta*) is better. Following the past reports by
+Ed. Make such graphs.
 
-Mark rubric ids with missing observations for Jon Kallis.
 ```{r}
-vmiss <- c()
-```
-
-
-### Accounting
-Accounting program has all reported in non-rubric. In a sense, it's rather robust. I don't see any issues.
-```{r}
-tbl3 %>% filter(str_detect(Course, "ACC (331|318|441)"))
-```
-
-### Business Core
-Business core uses BUS 499 intensively. Courses are taught by two instructors over the semesters, both in-person and online.
-```{r}
-x <- mdf.original %>% filter(Course == "BUS 499") %>% group_by(Semester, Section) %>%
-  summarise(n = n_distinct(UserId))
-x
-```
-
-In the previous note, missing observations are found in one of the sections. Following shows the data *after cleaning* of such missing observations in Annotated Bibliography for GW1 Spring 2020. For each section, the numbers of unique ID (i.e. count of students) for each `Assessment` are reported: since such numbers can be counted for each rubric row, any disagreements can be seen by comparing min/max of such counts. It is evident that there are some minor issues remaining in "Company Profile" of Fall 002 and Ethics Case of Fall GW1. These shall be addressed in revision, where individual results are collected.
-
-Moreover, there are a few assignments that are not taken or graded by several students (disagreements across rows). Fall 001 has 13 students in Ethics Case, while Annotated Bibliography has only 7 students.
-```{r} 
-sections <- x$Section
-semesters <- x$Semester
-for(i in 1:nrow(x)){
-  semester <- semesters[i]
-  mdf.original %>% filter(Section == sections[i], Semester == semesters[i]) %>%
-    group_by(RubricId, Assessment, Name) %>% summarise(n = n()) %>% 
-    group_by(RubricId, Assessment) %>% summarise(min_n = min(n), max_n = max(n)) %>%
-    mutate(ID = paste(semesters[i], sections[i])) %>% 
-    print(knitr::kable())
-}
+dfres <- bind_rows(lres)
+x <- dfres %>% filter(`Academic Year` == 2019) %>% mutate(Diff = Outcome - `Outcome Goal`)
+p <- ggplot(x, aes(as.factor(`Learning Objective Number`), Diff)) +
+  geom_col(na.rm = TRUE) + scale_y_continuous(labels=scales::percent) +
+    geom_hline(yintercept = c(0.2, -0.2), alpha = 0.4, color = "red") +
+    geom_hline(yintercept = c(0), alpha = 0.8, color = "black")
+p <- p + facet_wrap(vars(Program), scales = "free_x") + 
+    labs(title = "Deviations from Goals, AY2019, by Program and PLO") +
+    theme(axis.title = element_blank(),
+          text = element_text(family = "serif"),
+          panel.grid.minor.x = element_blank(),
+          legend.position = "none")
+p
 ```
 
 ```{r}
-vmiss <- c(vmiss, 119204, 111875, 124424)
+ggsave(p, file = paste0("fig/", "deltas2019", ".png"))
 ```
 
-
-### Economics
-Economics did not have one of the assessed course ECO 301. Non-rubric assessment was done in ECO 302. And, ECO 421 suffered from missing observations.
-```{r}
-tbl3 %>% filter(str_detect(Course, "ECO (301|302|421)"))
-```
-
-```{r}
-x <- mdf.original %>% filter(Course == "ECO 421") %>%
-  group_by(Instructor, Semester, Section) %>% summarise(n_distinct(UserId))
-
-sections <- x$Section
-semesters <- x$Semester
-for(i in 1:nrow(x)){
-  semester <- semesters[i]
-  mdf.original %>% filter(Section == sections[i], Semester == semesters[i]) %>%
-    group_by(RubricId, Assessment, Name) %>% summarise(n = n()) %>% 
-    group_by(RubricId, Assessment) %>% summarise(min_n = min(n), max_n = max(n)) %>%
-    mutate(ID = paste(semesters[i], sections[i])) %>% 
-    print(knitr::kable())
-}
-```
-
-```{r}
-vmiss <- c(vmiss, 126078)
-```
-
-### Finance
-Waiting for Chris... Received.
-
-```{r}
-tbl3 %>% filter(str_detect(Course, "FIN 302"))
-```
-
-### Human Resources Management
-Human Resources Management also suffered from missing observations, severely. All the observations are replaced with scraped data.
-```{r}
-tbl3 %>% filter(Course == "HRM 400")
-```
-
-```{r}
-x <- mdf.original %>% filter(Course == "HRM 400") %>%
-  group_by(Instructor, Semester, Section) %>% summarise(n_distinct(UserId))
-
-sections <- x$Section
-semesters <- x$Semester
-for(i in 1:nrow(x)){
-  semester <- semesters[i]
-  mdf.original %>% filter(Section == sections[i], Semester == semesters[i]) %>%
-    group_by(RubricId, Assessment, Name) %>% summarise(n = n()) %>% 
-    group_by(RubricId, Assessment) %>% summarise(min_n = min(n), max_n = max(n)) %>%
-    mutate(ID = paste(semesters[i], sections[i])) %>% 
-    print(knitr::kable())
-}
-```
-
-```{r}
-vmiss <- c(vmiss, 135012, 137775, 137778)
-```
-
-### Management
-Management assessments are all done in BUS 345. There are quite a number of observations, but that's due to the number of rubric rows. Class sizes are small to moderate.
-```{r}
-x <- mdf.original %>% filter(Course == "BUS 345") %>% group_by(Semester, Section) %>%
-  summarise(n = n_distinct(UserId))
-x
-```
-
-There are a few assignments/section that suffered from the missing observations, although magnitudes are smaller than BUS 499 case.
-```{r}
-sections <- x$Section
-semesters <- x$Semester
-for(i in 1:nrow(x)){
-  semester <- semesters[i]
-  mdf.original %>% filter(Section == sections[i], Semester == semesters[i]) %>%
-    group_by(RubricId, Assessment, Name) %>% summarise(n = n()) %>% 
-    group_by(RubricId, Assessment) %>% summarise(min_n = min(n), max_n = max(n)) %>%
-    mutate(ID = paste(semesters[i], sections[i])) %>% 
-    print(knitr::kable())
-}
-```
-
-```{r}
-vmiss <- c(vmiss, 123356)
-```
-
-Missing students across assignments (comparing vertically) are severe? No, that's due to a typo in section ID. It needs to be fixed now (Beth - BUS 345 GWI > GW1)...Done.
-
-Also, the row count of "Ethics Reflection" is too high? In the survey, there are two entries: 
-
-- https://calu.desire2learn.com/d2l/lp/rubrics/stats_selectAssociation.d2l?rubricId=111900&ou=2668874
-- https://calu.desire2learn.com/d2l/lp/rubrics/stats_selectAssociation.d2l?rubricId=123358&ou=2775552
-
-Both are claimed to be for Fall 2019, BUS 345 GW1, Ethics Reflection. ~~Need to check with her.~~ I can identify the course from `ou` part: It's for Spring 2020 GW1. Fix it... Done.
-
-Now the numbers make a little more sense.
-
-Still, the number of students fall short in GW1 Fall and Spring both "vertically" and "horizontally". Need to check the course.
-
-```{r}
-mdf %>% filter(Course == "BUS 345") %>% group_by(Instructor, Semester, Section) %>% summarise(n_distinct(UserId))
-```
-
-### Marketing
-Waiting for Rich. Eric Freeman taught this class and... rubrics are not identifiable.
-```{r}
-mdf %>% filter(Course == "MKT 401")
-```
-
-7/14 Had some conversations, having clarified some issues. Those rows with actual descriptions might be usable. Rich can assign them to PLOs. He'd like to include Ed in the discussion, then we can move on.
-
-There was some misunderstanding with Rich and between Rich and Eric Freeman, it seems. (e.g. Goal and PLOs are mixed up) Communication about assessments is a critical step we need to address. (See OneNote for some more details.)
-
-That said, we won't have much information out of the data because of the way this assignment was graded. Another thing to improve is how students are supposed to be assessed.
-```{r}
-tbl4 %>% filter(Course == "MKT 401")
-```
-
-
-### MIS
-Not offered? Double check.
-
-### MBA
-```{r}
-tbl4 %>% filter(str_detect(PLO, "MBA")) %>% knitr::kable(dig = 2)
-```
-
-#### BUS 799 (PLO 7)
-
-```{r}
-non %>% filter(Course == "BUS 799")
-non %>% filter(Course == "Bus 799")
-```
-
-MBA 7. "Chapter Case Study" and "Comprehensive Project". When it's supposed to be exam scores.
-
-#### BUS 771 (PLO 8)
-```{r}
-tbl3 %>% filter(Course == "BUS 771")
-#(0.8*5+0.66*30+0.12*16)/(5+30+16)
-```
-
-Okay... some are rubric rows and others are not. Aggregation by weighted mean does not work. There is a check though, through group_by(Rubric). How come it went through undetected? Found it. It was overwritten at `tbl4` aggregation. Fix it...Done. Now the graph for MBA shows a glitch. Let's fix that.
-
-In non-rubric entries, they look fine.
-```{r}
-non %>% filter(Course == "BUS 771")
-```
-
-In rubric entries, "Final Exam Score - Case Report 3" seems to have paper-like rubric?
-```{r}
-mdf %>% filter(Course == "BUS 771")
-```
-
-For now I can ignore those. Use the key "No Rubric" to filter them...
-
-#### Follow up
-So,
-
-- [x] Ask Ed about 799: What do we do about those entries?
-- [x] Ask Ed about 771: Is this a correct label?
-
-- [x] Ask Jon about missing data >> Requested for rubric ids >> Sent
-
-```{r}
-for(i in length(vmiss)){
-  cat(paste0(vmiss, collapse = "\n"))
-}
-```
-
-Declined Requests
+Business Core Disaggregate
 --------------------------------------------------------------------------------
+Filter out attributes:
 ```{r}
-req <- read_excel("data/Assessment Survey Responses.xlsx", "Requests")
-req <- req %>% 
-  mutate(Semester = str_replace_all(Semester,c("Fall" = "2019 Fall",
-                                                  "Spring" = "2020 Spring",
-                                                  "Summer" = "2019 Summer")),
-            Section = paste(Department, Course, Section))
-
-requested <- levels(factor(req$Section))
-obtained <- levels(factor(tbl3$Section))
-
-declined <- requested[!obtained %in% requested]
-```
-```{r}
-req %>%
-  filter(str_detect(Section,
-                    paste(paste0("(", declined, ")"), collapse = "|")))
+attr <- mdf %>% filter(str_detect(Name, "Major|Minor")) %>% 
+  select(UserId, Course, Section, Semester, Assessment, Name, LevelAchieved.Original)
 ```
 
-Check Comments for Data Validation
---------------------------------------------------------------------------------
-
-### Accounting
+Confirm `UserId` is unique.
 ```{r}
-non %>% filter(str_detect(Course, "ACC (331|318|441)")) %>%
-  transmute(Course, Analysis.Non.Rubric, Action.Non.Rubric, Met = np/n) %>%
-  knitr::kable(dig = 2)
-```
-
-### Business Core
-```{r}
-survey %>% filter(str_detect(Course, "BUS 499")) %>%
-  select(Course, PLO, Analysis.Rubric, Action.Rubric) %>%
-  knitr::kable(dig = 2)
-```
-
-### Economics
-```{r}
-survey %>% filter(str_detect(Course, "ECO (301|302|421)")) %>%
-  select(Course, PLO, Analysis.Rubric, Action.Rubric) %>%
-  knitr::kable(dig = 2)
+attr %>% filter(Course == "BUS 499")
 ```
 
 ```{r}
-non %>% filter(str_detect(Course, "ECO (301|302|421)")) %>%
-  select(Course, PLO, Analysis.Non.Rubric, Action.Non.Rubric) %>%
-  knitr::kable(dig = 2)
+attr %>% filter(UserId == 129918)
 ```
 
-### Finance
-
-### Human Resources Management
-
-### Management
-
-### Marketing
-
-### MBA
+Then, I can just collect one observation per student.
 ```{r}
-non %>% filter(Course == "BUS 771") %>%
-  transmute(Course, Analysis.Non.Rubric, Action.Non.Rubric, Met = np/n) %>%
-  knitr::kable(dig = 2)
+program <- attr %>% select(UserId, Name, LevelAchieved.Original)
+#x <- levels(factor(program$Name))
+#str_extract(x, "(Major)|(Minor)")
+program <- program %>%
+  mutate(Name = str_extract(Name, "(Major)|(Minor)")) %>% distinct()
 ```
+
+Not uniquely valued because selections are different...
+```{r}
+table(program$UserId)
+program %>% filter(UserId == 270389)
+```
+
+Alleviate this issue by selecting course.
+```{r}
+program <- attr %>% select(UserId, Name, LevelAchieved.Original, Course, Assessment)
+mm.bus499 <- program %>% filter(Course == "BUS 499")
+mm.bus499 <- mm.bus499 %>%
+  mutate(Name = str_extract(Name, "(Major)|(Minor)")) %>% distinct()
+table(mm.bus499$UserId)
+mm.bus499 %>% filter(UserId == 295879)
+```
+
+What if limit to Majors?
+```{r}
+mm.bus499 <- mm.bus499 %>% filter(Name == "Major")
+mm.bus499 %>% filter(UserId == 441464)
+```
+
+Really? I need to fix those names. Also, note that it looks worse than actually is due to the empty levels.
+```{r}
+mm.bus499 <- droplevels(mm.bus499)
+levels(mm.bus499$LevelAchieved.Original)
+```
+
+```{r}
+mm.bus499 <- mm.bus499 %>%
+  mutate(Major = str_to_title(LevelAchieved.Original))
+table(mm.bus499$Major)
+```
+
+```{r}
+#x <- levels(factor(mm.bus499$Major))
+#x
+#str_extract(x, "General Busines{1,3}")
+#str_extract(x, "Integrated Global Business.*")
+pttrn.major <- c("General Busines{1,3}" = "General Business",
+                 "Integrated Global Business.*" = "Integrated Global Business")
+mm.bus499 <- mm.bus499 %>% mutate(Major = str_replace_all(Major, pttrn.major))
+table(mm.bus499$Major)
+table(mm.bus499$UserId)
+mm.bus499 %>% filter(UserId == 512078)
+```
+
+Still duplicates exist.
+
+Alternatively, I can just 'match' by rubric ID, giving up conisistency...
 
 
 Next
