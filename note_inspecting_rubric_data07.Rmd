@@ -572,27 +572,6 @@ for(i in length(vmiss)){
 }
 ```
 
-Delta
---------------------------------------------------------------------------------
-How far are we to achieve goals? Comparison with bar graphs is good, but taking the difference from the goal (*delta*) is better.
-
-```{r}
-dfres <- bind_rows(lres)
-x <- dfres %>% filter(`Academic Year` == 2019) %>% mutate(Diff = Outcome - `Outcome Goal`)
-p <- ggplot(x, aes(as.factor(`Learning Objective Number`), Diff)) +
-  geom_col(na.rm = TRUE) + scale_y_continuous(labels=scales::percent) +
-    geom_hline(yintercept = c(0.2, -0.2), alpha = 0.4, color = "red") +
-    geom_hline(yintercept = c(0), alpha = 0.8, color = "black")
-p <- p + facet_wrap(vars(Program), scales = "free_x") + 
-    labs(title = "Deviations from Goals, AY2019, by Program and PLO") +
-    theme(axis.title = element_blank(),
-          text = element_text(family = "serif"),
-          panel.grid.minor.x = element_blank(),
-          legend.position = "none")
-ggsave(p, file = paste0("fig/", "deltas2019", ".png"))
-```
-
-
 Declined Requests
 --------------------------------------------------------------------------------
 ```{r}
@@ -658,6 +637,106 @@ non %>% filter(Course == "BUS 771") %>%
   transmute(Course, Analysis.Non.Rubric, Action.Non.Rubric, Met = np/n) %>%
   knitr::kable(dig = 2)
 ```
+
+Additional Analyses
+================================================================================
+
+Delta
+--------------------------------------------------------------------------------
+How far are we to achieve goals? Comparison with bar graphs is good, but taking the difference from the goal (*delta*) is better.
+
+```{r}
+dfres <- bind_rows(lres)
+x <- dfres %>% filter(`Academic Year` == 2019) %>% mutate(Diff = Outcome - `Outcome Goal`)
+p <- ggplot(x, aes(as.factor(`Learning Objective Number`), Diff)) +
+  geom_col(na.rm = TRUE) + scale_y_continuous(labels=scales::percent) +
+    geom_hline(yintercept = c(0.2, -0.2), alpha = 0.4, color = "red") +
+    geom_hline(yintercept = c(0), alpha = 0.8, color = "black")
+p <- p + facet_wrap(vars(Program), scales = "free_x") + 
+    labs(title = "Deviations from Goals, AY2019, by Program and PLO") +
+    theme(axis.title = element_blank(),
+          text = element_text(family = "serif"),
+          panel.grid.minor.x = element_blank(),
+          legend.position = "none")
+ggsave(p, file = paste0("fig/", "deltas2019", ".png"))
+```
+
+Business Core Disaggregate
+--------------------------------------------------------------------------------
+Filter out attributes:
+```{r}
+attr <- mdf %>% filter(str_detect(Name, "Major|Minor")) %>% 
+  select(UserId, Course, Section, Semester, Assessment, Name, LevelAchieved.Original)
+```
+
+Confirm `UserId` is unique.
+```{r}
+attr %>% filter(Course == "BUS 499")
+```
+
+```{r}
+attr %>% filter(UserId == 129918)
+```
+
+Then, I can just collect one observation per student.
+```{r}
+program <- attr %>% select(UserId, Name, LevelAchieved.Original)
+#x <- levels(factor(program$Name))
+#str_extract(x, "(Major)|(Minor)")
+program <- program %>%
+  mutate(Name = str_extract(Name, "(Major)|(Minor)")) %>% distinct()
+```
+
+Not uniquely valued because selections are different...
+```{r}
+table(program$UserId)
+program %>% filter(UserId == 270389)
+```
+
+Alleviate this issue by selecting course.
+```{r}
+program <- attr %>% select(UserId, Name, LevelAchieved.Original, Course, Assessment)
+mm.bus499 <- program %>% filter(Course == "BUS 499")
+mm.bus499 <- mm.bus499 %>%
+  mutate(Name = str_extract(Name, "(Major)|(Minor)")) %>% distinct()
+table(mm.bus499$UserId)
+mm.bus499 %>% filter(UserId == 295879)
+```
+
+What if limit to Majors?
+```{r}
+mm.bus499 <- mm.bus499 %>% filter(Name == "Major")
+mm.bus499 %>% filter(UserId == 441464)
+```
+
+Really? I need to fix those names. Also, note that it looks worse than actually is due to the empty levels.
+```{r}
+mm.bus499 <- droplevels(mm.bus499)
+levels(mm.bus499$LevelAchieved.Original)
+```
+
+```{r}
+mm.bus499 <- mm.bus499 %>%
+  mutate(Major = str_to_title(LevelAchieved.Original))
+table(mm.bus499$Major)
+```
+
+```{r}
+#x <- levels(factor(mm.bus499$Major))
+#x
+#str_extract(x, "General Busines{1,3}")
+#str_extract(x, "Integrated Global Business.*")
+pttrn.major <- c("General Busines{1,3}" = "General Business",
+                 "Integrated Global Business.*" = "Integrated Global Business")
+mm.bus499 <- mm.bus499 %>% mutate(Major = str_replace_all(Major, pttrn.major))
+table(mm.bus499$Major)
+table(mm.bus499$UserId)
+mm.bus499 %>% filter(UserId == 512078)
+```
+
+Still duplicates exist.
+
+Alternatively, I can just 'match' by rubric ID, giving up conisistency...
 
 
 Next
