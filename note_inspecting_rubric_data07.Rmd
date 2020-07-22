@@ -160,8 +160,8 @@ tbl4 <- tbl3 %>%
   group_by(Course, Assessment, Name, PLO, Rubric) %>%
   summarise(Met.UND = weighted.mean(Met.UND, n, na.rm = TRUE),
             Met.GRD = weighted.mean(Met.GRD, n, na.rm = TRUE),
-            n = sum(n, na.rm = TRUE), n.sec = n_distinct(Section),
-            Rubric = TRUE) %>% 
+            n = sum(n, na.rm = TRUE), n.sec = n_distinct(Section)
+            ) %>% 
   ungroup()
 ```
 
@@ -202,7 +202,7 @@ get_outcome <- function(plotag, rrow, program, plo,
   }
 }
 #get_outcome(plotag = "ACC 1", rrow = "NA", program = "Accounting", plo = 1)
-#get_outcome(plotag = "ACC 1", rrow = "No Rubric", program = "Accounting", plo = 1)
+#get_outcome(plotag = "FIN 1", rrow = "No Rubric", program = "Finance", plo = 1)
 ```
 ```{r}
 keys.all <- read_csv("data/mapping_keys.csv", na = "NA")
@@ -213,13 +213,14 @@ get_outcomes <- function(program, grad = FALSE){
   # Wrapper to return a combined results for each program
   keys <- keys.all %>% filter(Program == program)
   lres <- list()
+  plos <- keys$PLO
   plotags <- keys$PLO.Tags
   rrows <- keys$Rubric.Rows
   orientations <- keys$Orientation
   types <- keys$Type
   goals <- keys$Goals
   for(i in 1:length(plotags)){
-    lres[[i]] <- get_outcome(plotags[i], rrows[i], program, i,
+    lres[[i]] <- get_outcome(plotags[i], rrows[i], program, plos[i],
                              grad, orientations[i], types[i],
                              NA, NA, goals[i])
   }
@@ -242,8 +243,8 @@ getbind_outcomes <- function(program, grad = FALSE){
 }
 #get_outcomes("Accounting")
 #get_outcomes("Business Core")
-#get_outcomes("Economics")
-#getbind_outcomes("Economics")
+#get_outcomes("Finance")
+#getbind_outcomes("Finance")
 ```
 
 Now that all the functions are prepared, extract rows from `tbl4` and merge them
@@ -252,7 +253,7 @@ together. The end result is a collection of AY2019 outcomes. Furthermore, merge 
 out2019 <- getbind_outcomes("Accounting") %>%
   bind_rows(getbind_outcomes("Business Core")) %>% 
   bind_rows(getbind_outcomes("Economics")) %>% 
-#  bind_rows(getbind_outcomes("Finance")) %>% 
+  bind_rows(getbind_outcomes("Finance")) %>% 
   bind_rows(getbind_outcomes("Human Resources Management")) %>% 
   bind_rows(getbind_outcomes("Management")) %>% 
 #  bind_rows(getbind_outcomes("Marketing")) %>% 
@@ -297,7 +298,7 @@ draw_graph <- function(x, program, note = ""){
 Then, retrieve the relevant parts of the table from `out2019` by specifying program and assessment types. Except for MBA, programs only have one type (summative/formative) per PLO. So, no need to specify them.
 ```{r}
 lres <- list()
-for(prog in c("Accounting", "Business Core", "Economics", 
+for(prog in c("Accounting", "Business Core", "Economics", "Finance", 
               "Human Resources Management", "Management")){
   lres[[prog]] <- out2019 %>%
     filter(Program == prog, `Assessment Type Orientation` == "Internal")
@@ -311,7 +312,7 @@ lres[["MBA"]] <- out2019 %>%
 Make graphs.
 ```{r}
 lplt <- list()
-for(prog in c("Accounting", "Business Core", "Economics", 
+for(prog in c("Accounting", "Business Core", "Economics", "Finance",
               "Human Resources Management", "Management", "MBA")){
   p <- draw_graph(lres[[prog]], prog)
   ggsave(p, file = paste0("fig/", prog, ".png"))
@@ -342,10 +343,10 @@ Email sent to committee:
 
 Here’s the current status and recent development:
 
-- Accounting: All clear except PLO 3, whose course was taught by Rogan Howard (ACC 318 001 Spring). I don’t remember what we agreed to do about this. Retrieve exam data if possible?
-- Business Core: All clear. I’m double-checking each for missing data.
-- Economics: All clear. Paul will need to make the mapping more explicit, but that’ll be a task for the next round.
-- Finance program: Chris told me that he actually didn’t use rubrics for FIN 302. I asked him to assess outcomes from the records and his memory.
+- Accounting: All clear except PLO 3, whose course was taught by Rogan Howard (ACC 318 001 Spring). I don’t remember what we agreed to do about this. Retrieve exam data if possible? >> Ed: "I'll get into the ACC 318 course shell and see what we can do.  I'm having Freeman get MKT 741 for us.   BUS 799 was the other one if remember correctly..."
+- Business Core: All clear.
+- Economics: All clear. (Paul will need to make the mapping more explicit, but that’ll be a task for the next round.)
+- Finance program: All clear. (Chris told me that he actually didn’t use rubrics for FIN 302. I asked him to assess outcomes from the records and his memory.)
 - Human Resources Management: All clear.
 - Management: All clear.
 - Marketing: Rich is figuring out what we can do with the available data.
@@ -361,6 +362,12 @@ Investigate
 Validate Data
 --------------------------------------------------------------------------------
 
+Mark rubric ids with missing observations for Jon Kallis.
+```{r}
+vmiss <- c()
+```
+
+
 ### Accounting
 Accounting program has all reported in non-rubric. In a sense, it's rather robust. I don't see any issues.
 ```{r}
@@ -370,7 +377,7 @@ tbl3 %>% filter(str_detect(Course, "ACC (331|318|441)"))
 ### Business Core
 Business core uses BUS 499 intensively. Courses are taught by two instructors over the semesters, both in-person and online.
 ```{r}
-x <- mdf %>% filter(Course == "BUS 499") %>% group_by(Semester, Section) %>%
+x <- mdf.original %>% filter(Course == "BUS 499") %>% group_by(Semester, Section) %>%
   summarise(n = n_distinct(UserId))
 x
 ```
@@ -383,16 +390,18 @@ sections <- x$Section
 semesters <- x$Semester
 for(i in 1:nrow(x)){
   semester <- semesters[i]
-  mdf %>% filter(Section == sections[i], Semester == semesters[i]) %>%
-    group_by(Assessment, Name) %>% summarise(n = n()) %>% 
-    group_by(Assessment) %>% summarise(min_n = min(n), max_n = max(n)) %>%
+  mdf.original %>% filter(Section == sections[i], Semester == semesters[i]) %>%
+    group_by(RubricId, Assessment, Name) %>% summarise(n = n()) %>% 
+    group_by(RubricId, Assessment) %>% summarise(min_n = min(n), max_n = max(n)) %>%
     mutate(ID = paste(semesters[i], sections[i])) %>% 
     print(knitr::kable())
 }
 ```
+
 ```{r}
-mdf %>% filter(Course == "BUS 499") %>% group_by(Instructor, Semester, Section) %>% summarise(n_distinct(UserId))
+vmiss <- c(vmiss, 119204, 111875, 124424)
 ```
+
 
 ### Economics
 Economics did not have one of the assessed course ECO 301. Non-rubric assessment was done in ECO 302. And, ECO 421 suffered from missing observations.
@@ -400,8 +409,32 @@ Economics did not have one of the assessed course ECO 301. Non-rubric assessment
 tbl3 %>% filter(str_detect(Course, "ECO (301|302|421)"))
 ```
 
+```{r}
+x <- mdf.original %>% filter(Course == "ECO 421") %>%
+  group_by(Instructor, Semester, Section) %>% summarise(n_distinct(UserId))
+
+sections <- x$Section
+semesters <- x$Semester
+for(i in 1:nrow(x)){
+  semester <- semesters[i]
+  mdf.original %>% filter(Section == sections[i], Semester == semesters[i]) %>%
+    group_by(RubricId, Assessment, Name) %>% summarise(n = n()) %>% 
+    group_by(RubricId, Assessment) %>% summarise(min_n = min(n), max_n = max(n)) %>%
+    mutate(ID = paste(semesters[i], sections[i])) %>% 
+    print(knitr::kable())
+}
+```
+
+```{r}
+vmiss <- c(vmiss, 126078)
+```
+
 ### Finance
-Waiting for Chris.
+Waiting for Chris... Received.
+
+```{r}
+tbl3 %>% filter(str_detect(Course, "FIN 302"))
+```
 
 ### Human Resources Management
 Human Resources Management also suffered from missing observations, severely. All the observations are replaced with scraped data.
@@ -409,10 +442,30 @@ Human Resources Management also suffered from missing observations, severely. Al
 tbl3 %>% filter(Course == "HRM 400")
 ```
 
+```{r}
+x <- mdf.original %>% filter(Course == "HRM 400") %>%
+  group_by(Instructor, Semester, Section) %>% summarise(n_distinct(UserId))
+
+sections <- x$Section
+semesters <- x$Semester
+for(i in 1:nrow(x)){
+  semester <- semesters[i]
+  mdf.original %>% filter(Section == sections[i], Semester == semesters[i]) %>%
+    group_by(RubricId, Assessment, Name) %>% summarise(n = n()) %>% 
+    group_by(RubricId, Assessment) %>% summarise(min_n = min(n), max_n = max(n)) %>%
+    mutate(ID = paste(semesters[i], sections[i])) %>% 
+    print(knitr::kable())
+}
+```
+
+```{r}
+vmiss <- c(vmiss, 135012, 137775, 137778)
+```
+
 ### Management
 Management assessments are all done in BUS 345. There are quite a number of observations, but that's due to the number of rubric rows. Class sizes are small to moderate.
 ```{r}
-x <- mdf %>% filter(Course == "BUS 345") %>% group_by(Semester, Section) %>%
+x <- mdf.original %>% filter(Course == "BUS 345") %>% group_by(Semester, Section) %>%
   summarise(n = n_distinct(UserId))
 x
 ```
@@ -423,12 +476,16 @@ sections <- x$Section
 semesters <- x$Semester
 for(i in 1:nrow(x)){
   semester <- semesters[i]
-  mdf %>% filter(Section == sections[i], Semester == semesters[i]) %>%
-    group_by(Assessment, Name) %>% summarise(n = n()) %>% 
-    group_by(Assessment) %>% summarise(min_n = min(n), max_n = max(n)) %>%
+  mdf.original %>% filter(Section == sections[i], Semester == semesters[i]) %>%
+    group_by(RubricId, Assessment, Name) %>% summarise(n = n()) %>% 
+    group_by(RubricId, Assessment) %>% summarise(min_n = min(n), max_n = max(n)) %>%
     mutate(ID = paste(semesters[i], sections[i])) %>% 
     print(knitr::kable())
 }
+```
+
+```{r}
+vmiss <- c(vmiss, 123356)
 ```
 
 Missing students across assignments (comparing vertically) are severe? No, that's due to a typo in section ID. It needs to be fixed now (Beth - BUS 345 GWI > GW1)...Done.
@@ -449,12 +506,140 @@ mdf %>% filter(Course == "BUS 345") %>% group_by(Instructor, Semester, Section) 
 ```
 
 ### Marketing
-Waiting for Rich.
+Waiting for Rich. Eric Freeman taught this class and... rubrics are not identifiable.
+```{r}
+mdf %>% filter(Course == "MKT 401")
+```
+
+7/14 Had some conversations, having clarified some issues. Those rows with actual descriptions might be usable. Rich can assign them to PLOs. He'd like to include Ed in the discussion, then we can move on.
+
+There was some misunderstanding with Rich and between Rich and Eric Freeman, it seems. (e.g. Goal and PLOs are mixed up) Communication about assessments is a critical step we need to address. (See OneNote for some more details.)
+
+That said, we won't have much information out of the data because of the way this assignment was graded. Another thing to improve is how students are supposed to be assessed.
+```{r}
+tbl4 %>% filter(Course == "MKT 401")
+```
+
 
 ### MIS
 Not offered? Double check.
 
+### MBA
+```{r}
+tbl4 %>% filter(str_detect(PLO, "MBA")) %>% knitr::kable(dig = 2)
+```
 
+#### BUS 799 (PLO 7)
+
+```{r}
+non %>% filter(Course == "BUS 799")
+non %>% filter(Course == "Bus 799")
+```
+
+MBA 7. "Chapter Case Study" and "Comprehensive Project". When it's supposed to be exam scores.
+
+#### BUS 771 (PLO 8)
+```{r}
+tbl3 %>% filter(Course == "BUS 771")
+#(0.8*5+0.66*30+0.12*16)/(5+30+16)
+```
+
+Okay... some are rubric rows and others are not. Aggregation by weighted mean does not work. There is a check though, through group_by(Rubric). How come it went through undetected? Found it. It was overwritten at `tbl4` aggregation. Fix it...Done. Now the graph for MBA shows a glitch. Let's fix that.
+
+In non-rubric entries, they look fine.
+```{r}
+non %>% filter(Course == "BUS 771")
+```
+
+In rubric entries, "Final Exam Score - Case Report 3" seems to have paper-like rubric?
+```{r}
+mdf %>% filter(Course == "BUS 771")
+```
+
+For now I can ignore those. Use the key "No Rubric" to filter them...
+
+#### Follow up
+So,
+
+- [x] Ask Ed about 799: What do we do about those entries?
+- [x] Ask Ed about 771: Is this a correct label?
+
+- [x] Ask Jon about missing data >> Requested for rubric ids >> Sent
+
+```{r}
+for(i in length(vmiss)){
+  cat(paste0(vmiss, collapse = "\n"))
+}
+```
+
+Declined Requests
+--------------------------------------------------------------------------------
+```{r}
+req <- read_excel("data/Assessment Survey Responses.xlsx", "Requests")
+req <- req %>% 
+  mutate(Semester = str_replace_all(Semester,c("Fall" = "2019 Fall",
+                                                  "Spring" = "2020 Spring",
+                                                  "Summer" = "2019 Summer")),
+            Section = paste(Department, Course, Section))
+
+requested <- levels(factor(req$Section))
+obtained <- levels(factor(tbl3$Section))
+
+declined <- requested[!obtained %in% requested]
+```
+```{r}
+req %>%
+  filter(str_detect(Section,
+                    paste(paste0("(", declined, ")"), collapse = "|")))
+```
+
+Check Comments for Data Validation
+--------------------------------------------------------------------------------
+
+### Accounting
+```{r}
+non %>% filter(str_detect(Course, "ACC (331|318|441)")) %>%
+  transmute(Course, Analysis.Non.Rubric, Action.Non.Rubric, Met = np/n) %>%
+  knitr::kable(dig = 2)
+```
+
+### Business Core
+```{r}
+survey %>% filter(str_detect(Course, "BUS 499")) %>%
+  select(Course, PLO, Analysis.Rubric, Action.Rubric) %>%
+  knitr::kable(dig = 2)
+```
+
+### Economics
+```{r}
+survey %>% filter(str_detect(Course, "ECO (301|302|421)")) %>%
+  select(Course, PLO, Analysis.Rubric, Action.Rubric) %>%
+  knitr::kable(dig = 2)
+```
+
+```{r}
+non %>% filter(str_detect(Course, "ECO (301|302|421)")) %>%
+  select(Course, PLO, Analysis.Non.Rubric, Action.Non.Rubric) %>%
+  knitr::kable(dig = 2)
+```
+
+### Finance
+
+### Human Resources Management
+
+### Management
+
+### Marketing
+
+### MBA
+```{r}
+non %>% filter(Course == "BUS 771") %>%
+  transmute(Course, Analysis.Non.Rubric, Action.Non.Rubric, Met = np/n) %>%
+  knitr::kable(dig = 2)
+```
+
+Additional Analyses
+================================================================================
 
 Delta
 --------------------------------------------------------------------------------
@@ -476,27 +661,82 @@ p <- p + facet_wrap(vars(Program), scales = "free_x") +
 ggsave(p, file = paste0("fig/", "deltas2019", ".png"))
 ```
 
-
-Declined Requests
+Business Core Disaggregate
 --------------------------------------------------------------------------------
+Filter out attributes:
 ```{r}
-req <- read_excel("data/Assessment Survey Responses.xlsx", "Requests")
-req <- req %>% 
-  mutate(Semester = str_replace_all(Semester,c("Fall" = "2019 Fall",
-                                                  "Spring" = "2020 Spring",
-                                                  "Summer" = "2019 Summer")),
-            Section = paste(Department, Course, Section))
-
-requested <- levels(factor(req2$Section))
-obtained <- levels(factor(tbl3$Section))
-
-declined <- requested[!obtained %in% requested]
+attr <- mdf %>% filter(str_detect(Name, "Major|Minor")) %>% 
+  select(UserId, Course, Section, Semester, Assessment, Name, LevelAchieved.Original)
 ```
+
+Confirm `UserId` is unique.
 ```{r}
-req %>%
-  filter(str_detect(Section,
-                    paste(paste0("(", declined, ")"), collapse = "|")))
+attr %>% filter(Course == "BUS 499")
 ```
+
+```{r}
+attr %>% filter(UserId == 129918)
+```
+
+Then, I can just collect one observation per student.
+```{r}
+program <- attr %>% select(UserId, Name, LevelAchieved.Original)
+#x <- levels(factor(program$Name))
+#str_extract(x, "(Major)|(Minor)")
+program <- program %>%
+  mutate(Name = str_extract(Name, "(Major)|(Minor)")) %>% distinct()
+```
+
+Not uniquely valued because selections are different...
+```{r}
+table(program$UserId)
+program %>% filter(UserId == 270389)
+```
+
+Alleviate this issue by selecting course.
+```{r}
+program <- attr %>% select(UserId, Name, LevelAchieved.Original, Course, Assessment)
+mm.bus499 <- program %>% filter(Course == "BUS 499")
+mm.bus499 <- mm.bus499 %>%
+  mutate(Name = str_extract(Name, "(Major)|(Minor)")) %>% distinct()
+table(mm.bus499$UserId)
+mm.bus499 %>% filter(UserId == 295879)
+```
+
+What if limit to Majors?
+```{r}
+mm.bus499 <- mm.bus499 %>% filter(Name == "Major")
+mm.bus499 %>% filter(UserId == 441464)
+```
+
+Really? I need to fix those names. Also, note that it looks worse than actually is due to the empty levels.
+```{r}
+mm.bus499 <- droplevels(mm.bus499)
+levels(mm.bus499$LevelAchieved.Original)
+```
+
+```{r}
+mm.bus499 <- mm.bus499 %>%
+  mutate(Major = str_to_title(LevelAchieved.Original))
+table(mm.bus499$Major)
+```
+
+```{r}
+#x <- levels(factor(mm.bus499$Major))
+#x
+#str_extract(x, "General Busines{1,3}")
+#str_extract(x, "Integrated Global Business.*")
+pttrn.major <- c("General Busines{1,3}" = "General Business",
+                 "Integrated Global Business.*" = "Integrated Global Business")
+mm.bus499 <- mm.bus499 %>% mutate(Major = str_replace_all(Major, pttrn.major))
+table(mm.bus499$Major)
+table(mm.bus499$UserId)
+mm.bus499 %>% filter(UserId == 512078)
+```
+
+Still duplicates exist.
+
+Alternatively, I can just 'match' by rubric ID, giving up conisistency...
 
 
 Next
