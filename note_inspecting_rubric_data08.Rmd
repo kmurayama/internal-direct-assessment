@@ -502,5 +502,51 @@ p
 ggsave(p, file = paste0("fig/", "buscore_by_major2019", ".png"))
 ```
 
+ACBSP Figures
+--------------------------------------------------------------------------------
+For ACBSP reporting, I need separate graph for each PLO.
+
+```{r}
+out2019
+```
+
+
+```{r}
+draw_graph <- function(x, program, note = ""){
+  # Wrapper function to draw trends in outcomes.
+  title <- paste0(program,
+                  ", Prevalence of Achievments Over Academic Years, by PLO")
+  caption <- "Grey number represents sample size."
+  caption <- paste0(caption, "\n", note)
+  ymin <- min(x$Outcome - 0.1, x$`Outcome Goal` - 0.1, na.rm = TRUE)
+  p <- ggplot(x, aes(`Academic Year`, Outcome)) +
+    geom_line(na.rm = TRUE) +
+    geom_point(aes(color = Outcome > `Outcome Goal`), na.rm = TRUE) +
+    scale_colour_manual(values = setNames(c('black','red'),c(T, F))) +
+    geom_text(aes(`Academic Year`, ymin + 0.05, label = round(`Sample Size`, 0)),
+              alpha = 0.4, na.rm = TRUE) +
+    geom_hline(aes(yintercept = `Outcome Goal`),
+               alpha = 0.4, color = "red", na.rm = TRUE) +
+    scale_y_continuous(labels=scales::percent, limits = c(ymin, 1))
+  p + facet_wrap(vars(`Learning Objective Number`)) +
+    labs(title = title, caption = caption) +
+    theme(axis.title = element_blank(),
+          text = element_text(family = "serif"),
+          panel.grid.minor.x = element_blank(),
+          legend.position = "none")
+}
+lres <- list()
+for(prog in c("Accounting", "Business Core", "Economics", "Finance", 
+              "Human Resources Management", "Management")){
+  lres[[prog]] <- out2019 %>%
+    filter(Program == prog, `Assessment Type Orientation` == "Internal")
+}
+lres[["MBA"]] <- out2019 %>%
+  filter(Program == "MBA",
+         `Assessment Type Orientation` == "Internal",
+         `Assessment Type` == "Formative")
+```
+
+
 Next
 ================================================================================
