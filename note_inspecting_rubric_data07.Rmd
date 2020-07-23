@@ -343,14 +343,15 @@ Email sent to committee:
 
 Here’s the current status and recent development:
 
-- Accounting: All clear except PLO 3, whose course was *actually* taught by Hina Chawdhry. Ed has requested an access, so it should be available soon.
-- Business Core: All clear.
-- Economics: All clear. (Paul will need to make the mapping more explicit, but that’ll be a task for the next round.)
-- Finance program: All clear. (Chris told me that he actually didn’t use rubrics for FIN 302. I asked him to assess outcomes from the records and his memory.)
-- Human Resources Management: All clear.
-- Management: All clear.
-- Marketing: Rich is figuring out what we can do with the available data.
-- MIS: The course (MIS 401 or MGT 373) was not offered this term. Confirmed.
+- [x] Accounting: All clear except PLO 3, whose course was *actually* taught by Hina Chawdhry. Ed has requested an access, so it should be available soon.
+- [x] Business Core: All clear.
+- [x] Economics: All clear. (Paul will need to make the mapping more explicit, but that’ll be a task for the next round.)
+- [x] Finance program: All clear. (Chris told me that he actually didn’t use rubrics for FIN 302. I asked him to assess outcomes from the records and his memory.)
+- [x] Human Resources Management: All clear.
+- [x] Management: All clear.
+- [ ] Marketing: Rich is figuring out what we can do with the available data.
+- [x] MBA: All clear. PLO 5 course was not offered.
+- [x] MIS: The course (MIS 401 or MGT 373) was not offered this term. Confirmed.
 
 
 
