@@ -502,5 +502,25 @@ p
 ggsave(p, file = paste0("fig/", "buscore_by_major2019", ".png"))
 ```
 
+MBA Comp Exams
+================================================================================
+```{r}
+# Note the files have been edited. There was an extra comma at each end of line.
+path <- "C:\\Users\\kentr\\OneDrive - California University of Pennsylvania\\Data\\Internal Direct Assessment\\"
+x1 <- read_csv(paste0(path, "MBA Comprehensive Exam Summer 2019.csv"))
+x2 <- read_csv(paste0(path, "MBA Comprehensive Exam Fall 2019.csv"))
+x3 <- read_csv(paste0(path, "MBA Comprehensive Exam Spring 2020.csv"))
+xx <- x1 %>% bind_rows(x2) %>% bind_rows(x3)
+head(xx)
+```
+
+```{r}
+xx <- xx %>%
+  transmute(row_score = Score, out_of = `Out Of`,
+            score = row_score/out_of)
+```
+
+Wrong files.
+
 Next
 ================================================================================
