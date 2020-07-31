@@ -505,7 +505,9 @@ ggsave(p, file = paste0("fig/", "buscore_by_major2019", ".png"))
 MBA Comp Exams
 ================================================================================
 ```{r}
-# Note the files have been edited. There was an extra comma at each end of line.
+# Note the files have been edited.
+# Rows with "Summary:" shift some columns and cause chaos...
+# If focusing on those rows, however, they can be used conveniently to get scores.
 path <- "C:\\Users\\kentr\\OneDrive - California University of Pennsylvania\\Data\\Internal Direct Assessment\\"
 x1 <- read_csv(paste0(path, "MBA Comprehensive Exam Summer 2019.csv"))
 x2 <- read_csv(paste0(path, "MBA Comprehensive Exam Fall 2019.csv"))
@@ -515,9 +517,12 @@ head(xx)
 ```
 
 ```{r}
-xx <- xx %>%
-  transmute(row_score = Score, out_of = `Out Of`,
-            score = row_score/out_of)
+comp <- xx %>% filter(grepl("Summary", `Q Title`)) %>%
+  transmute(Username, field = `Bonus?`,
+            raw_score = `Summary Score`, full_score = `Summary Out Of`,
+            score = raw_score / full_score)
+comp
+comp %>% group_by(field) %>% summarise(mean = mean(score), n = n(), zeros = mean(score == 0), min = min(score))
 ```
 
 Wrong files.
